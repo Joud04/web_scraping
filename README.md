@@ -1,8 +1,7 @@
 # Collecteur Web explicable — TP individuel
 
-> **État : structure initialisée, cible non encore attribuée.**
-> Les zones marquées `<…>` sont à compléter dès que le formateur a communiqué
-> l'identifiant de cible. Voir `docs/CHECKLIST_RENDU.md` pour l'ordre de travail.
+> **État : cible S32 (Cleveland Museum of Art) implémentée et vérifiée.**
+> Diagnostic, stratégie d'acquisition et preuves dans `docs/fiche_descriptive.md`.
 
 Collecteur de données Web écrit pour le TP individuel du module « Web Scraping
 moderne et industrialisation » (Semifir, formateur Adrien Vossough).
@@ -11,21 +10,21 @@ moderne et industrialisation » (Semifir, formateur Adrien Vossough).
 
 | | |
 |---|---|
-| Nom et prénom | `<à compléter>` |
-| Groupe | `<à compléter>` |
-| Format | TP **individuel** — production personnelle |
+| Nom et prénom | Walid Hdilou |
+| Cible traitée | S32 — Cleveland Museum of Art |
+| Groupe | `<binôme 2 à compléter>`, `<binôme 3 à compléter>` |
 
 ## Cible et périmètre
 
 | | |
 |---|---|
-| Identifiant de cible | `S__` |
-| Site | `<nom>` |
-| URL de départ | `<URL>` |
-| Objet collecté | `<Product / Destination / Artwork / …>` |
-| Volume plafond | `<n>` objets — **plafond de la fiche de cible, jamais un objectif** |
-| Champs minimaux | `<liste>` |
-| Rendu observé | `<HTML servi côté serveur / contenu absent sans JavaScript>` |
+| Identifiant de cible | S32 |
+| Site | Cleveland Museum of Art |
+| URL de départ | https://www.clevelandart.org/art/collection/search |
+| Objet collecté | Artwork |
+| Volume plafond | 30 objets — **plafond de la fiche de cible, jamais un objectif** |
+| Champs minimaux | `title`, `artist`, `date_text`, `medium`, `url` |
+| Rendu observé | recherche : contenu absent sans JavaScript ; **fiches détail : servies côté serveur** |
 
 Le diagnostic complet, preuves à l'appui, est dans `docs/fiche_descriptive.md`.
 
@@ -34,7 +33,8 @@ Le diagnostic complet, preuves à l'appui, est dans `docs/fiche_descriptive.md`.
 - Python **3.11 ou supérieur** (le module `tomllib` de la bibliothèque standard
   est utilisé pour lire la configuration)
 - Aucun compte, aucune clé d'API, aucune variable d'environnement
-- `<Playwright et son navigateur — uniquement si le diagnostic conclut à une cible SPA>`
+- **Aucun navigateur** : le diagnostic conclut que les fiches détail sont servies
+  côté serveur, la donnée est donc dans la réponse HTTP (voir `docs/fiche_descriptive.md`, section 4)
 
 ## Installation
 
@@ -159,9 +159,19 @@ Convention de valeur absente, tenue dans tout le projet :
 
 ## Limites connues
 
-`<à compléter — au moins trois limites réelles et mesurables, rubrique 9 du rapport>`
+1. **Découverte bornée par le voisinage.** Le parcours part de graines et suit les
+   œuvres liées (`artworksForSeeAlso`). Il n'atteint donc que la composante du
+   catalogue connexe aux graines, pas l'ensemble des dizaines de milliers d'œuvres.
+   C'est un choix imposé : la recherche exhaustive passe par `/api`, interdit.
+2. **Filtres et pagination non couverts.** Ils vivent derrière `/api` ; les
+   démontrer exigerait de contourner le robots.txt. Le front de collecte
+   (`artworksForSeeAlso`) en est l'équivalent conforme, mais il ne permet pas de
+   filtrer par département ou par date.
+3. **Dépendance au format `__NEXT_DATA__`.** L'extraction lit le JSON injecté par
+   Next.js ; une refonte du site vers un rendu 100 % client casserait la collecte
+   (détecté par `pytest`, repli documenté en fiche §7).
 
-Une limite déjà identifiable, indépendante de la cible : la déduplication vit en
+Une quatrième limite, indépendante de la cible : la déduplication vit en
 mémoire (`normalisation.Deduplicateur`). Elle ne survit pas à la fin du processus,
 donc deux exécutions successives ne se dédoublonnent pas entre elles. Choix assumé
 sur un volume de 60 objets au plus — une base de données serait ici de la
