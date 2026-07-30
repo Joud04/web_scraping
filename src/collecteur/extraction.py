@@ -1,44 +1,31 @@
-"""Extraction -- HTML ou DOM vers dictionnaires bruts.
+"""Extraction -- fiches d'oeuvre du Cleveland Museum of Art (cible S32).
 
-    ===================================================================
-    MODULE VOLONTAIREMENT VIDE TANT QUE LA CIBLE N'EST PAS ATTRIBUEE.
-    ===================================================================
+Seul module qui connait la cible. Tout le reste du collecteur en est ignorant.
 
-C'est ici, et seulement ici, que vivent les selecteurs. Ecrire un selecteur
-avant d'avoir regarde la page reviendrait a decider de l'acquisition avant le
-diagnostic, ce que la notice du formateur sanctionne explicitement :
+Ancrage retenu : le bloc `__NEXT_DATA__` que Next.js injecte dans la reponse
+HTTP des fiches d'oeuvre. C'est une donnee structuree servie par le site
+lui-meme, donc le premier rang de l'ordre de preference :
 
-    « Ma decision d'acquisition decoule-t-elle de ces observations, ou
-      l'avais-je prise avant de regarder ? »
-
-Ordre de travail, une fois la cible connue :
-
-  1. enregistrer une page de liste et une page de detail dans
-     tests/fixtures/ -- c'est ce qui rendra la verification rejouable sans
-     reseau, exigence de la rubrique 6 ;
-  2. comparer la reponse HTTP brute et le DOM rendu, chiffres a l'appui,
-     et consigner l'ecart dans docs/fiche_descriptive.md ;
-  3. choisir l'ancrage des DEUX champs les plus importants, et noter tout de
-     suite l'alternative ecartee -- c'est la rubrique 5 du rapport, et elle se
-     redige mal a posteriori ;
-  4. seulement alors, ecrire les fonctions ci-dessous.
-
-Contrat de ce module : il retourne des dictionnaires de chaines BRUTES, telles
-que la page les affiche. Il ne convertit rien. La conversion appartient a
-`normalisation`, ce qui permet de tester les regles metier sans HTML.
-
-Regle d'ancrage, valable quelle que soit la cible, par ordre de preference :
-
-    1. donnee structuree du site   JSON-LD, microdonnees, reponse JSON interne
-    2. attribut de donnee          data-testid, data-sku, itemprop
+    1. donnee structuree du site   <- retenu (__NEXT_DATA__)
+    2. attribut de donnee          data-testid, itemprop
     3. role ou libelle accessible  role="listitem", aria-label
     4. structure du document       "le second <td> de la ligne"
-    5. classe CSS utilitaire       a eviter : change a chaque refonte du theme
+    5. classe CSS utilitaire       change a chaque refonte du theme
 
-Un champ obligatoire introuvable doit produire un signal visible -- une
-exception `ChampObligatoireAbsent` remontee au pipeline, qui l'inscrira en
-rejet avec son motif. Jamais un enregistrement silencieusement incomplet :
-c'est ecrit noir sur blanc dans l'enonce.
+Consequence importante pour le diagnostic : la page de RECHERCHE ne contient
+aucune oeuvre dans sa reponse HTTP (elle peuple ses resultats par `/api`, chemin
+interdit par le robots.txt), alors que les FICHES DETAIL sont servies cote
+serveur, donnee comprise. C'est ce qui permet une collecte sans navigateur, et
+c'est ce qui impose de decouvrir les oeuvres de proche en proche plutot que par
+une page de liste. Le raisonnement complet est dans docs/fiche_descriptive.md.
+
+Contrat de ce module : il retourne des dictionnaires de chaines BRUTES, telles
+que la page les porte. Il ne convertit rien. La normalisation appartient a
+`normalisation`, ce qui permet de tester les regles metier sans HTML.
+
+Un champ obligatoire introuvable leve `ChampObligatoireAbsent`, que le pipeline
+inscrit en rejet avec son motif. Jamais un enregistrement silencieusement
+incomplet : c'est ecrit noir sur blanc dans l'enonce.
 """
 
 from __future__ import annotations
@@ -69,18 +56,27 @@ def analyser(html: str) -> BeautifulSoup:
     return BeautifulSoup(html, "lxml")
 
 
-def _bloc_next_data(html: str) -> dict[str, Any]:
+def _bloc_next_data(html: str, url_base: str) -> dict[str, Any]:
     """Extrait et parse le bloc `__NEXT_DATA__` que Next.js injecte dans la page.
 
     La cible rend ses fiches d'oeuvre cote serveur : toute la donnee tient dans
     ce bloc JSON de la reponse HTTP, ce qui rend inutile le pilotage d'un
     navigateur. Le bloc est retrouve par le parseur, pas par une regex : une
     accolade a l'interieur d'une chaine JSON ne doit pas tromper la recherche.
+
+    `url_base` n'a l'air de rien mais porte le diagnostic : c'est l'URL qui sera
+    inscrite dans data/rejets.jsonl si le bloc manque. Sans elle, le rejet dit
+    qu'une page a echoue sans dire laquelle, et la ligne devient inexploitable.
     """
     balise = analyser(html).find("script", id="__NEXT_DATA__")
     if balise is None or not balise.string:
-        raise ChampObligatoireAbsent("__NEXT_DATA__", "")
-    return json.loads(balise.string)
+        raise ChampObligatoireAbsent("__NEXT_DATA__", url_base)
+    try:
+        return json.loads(balise.string)
+    except json.JSONDecodeError as erreur:
+        # Un bloc present mais tronque est un cas distinct d'un bloc absent :
+        # il signale une reponse coupee, pas un changement de structure.
+        raise ChampObligatoireAbsent("__NEXT_DATA__ (JSON illisible)", url_base) from erreur
 
 
 def _origine(url: str) -> str:
@@ -114,7 +110,7 @@ def extraire_detail(html: str, url_base: str) -> dict[str, Any]:
     de la page a change. On leve alors `ChampObligatoireAbsent`, que le pipeline
     inscrira en rejet avec son motif.
     """
-    props = _bloc_next_data(html).get("props", {}).get("pageProps", {})
+    props = _bloc_next_data(html, url_base).get("props", {}).get("pageProps", {})
     art = props.get("artworkData")
     if not art:
         raise ChampObligatoireAbsent("artworkData", url_base)
@@ -145,7 +141,7 @@ def extraire_liens_lies(html: str, url_base: str) -> list[str]:
     C'est ce lien, servi cote serveur et sur un chemin autorise, qui remplace la
     pagination classique.
     """
-    props = _bloc_next_data(html).get("props", {}).get("pageProps", {})
+    props = _bloc_next_data(html, url_base).get("props", {}).get("pageProps", {})
     origine = _origine(url_base)
     liens, vus = [], set()
     for oeuvre in props.get("artworksForSeeAlso") or []:
