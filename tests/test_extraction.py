@@ -1,75 +1,114 @@
-"""CONTROLE 1 -- nombre d'objets extraits d'une page enregistree.
+"""CONTROLE 1 -- extraction d'une fiche d'oeuvre enregistree.
 
-Ce fichier reste en attente tant que la cible n'est pas attribuee : le nombre
-attendu ne peut pas etre invente, il se compte sur la page reelle.
+Tout est rejoue sur la page reelle enregistree dans tests/fixtures/page_detail.html
+(oeuvre 1915.534, « Nathaniel Hurd »). Aucun test ne touche le reseau.
 
-Marche a suivre une fois la cible connue :
-
-    1. enregistrer la page de liste, SANS la modifier :
-         python -m collecteur diagnostic --url <URL>     (pour verifier l'acces)
-         curl -sS "<URL>" -o tests/fixtures/page_liste.html
-    2. compter les objets a la main sur cette page enregistree ;
-    3. remplacer NOMBRE_ATTENDU par ce nombre, et retirer le skip ;
-    4. verifier que le test echoue si l'on retire un objet de la fixture --
-       un test qui passe quoi qu'il arrive ne prouve rien.
+La cible ne servant pas de page de liste (la recherche passe par /api, interdit
+-- voir docs/fiche_descriptive.md), le « nombre d'objets attendu » se lit sur les
+oeuvres voisines declarees par la fiche, pas sur une grille de resultats.
 """
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
-from collecteur.extraction import ChampObligatoireAbsent, analyser
-
-# A renseigner apres avoir compte les objets sur la page enregistree.
-NOMBRE_ATTENDU: int | None = None
-
-besoin_de_cible = pytest.mark.skipif(
-    NOMBRE_ATTENDU is None,
-    reason="Cible non attribuee : renseigner NOMBRE_ATTENDU et implementer extraction.py.",
+from collecteur.extraction import (
+    ChampObligatoireAbsent,
+    analyser,
+    extraire_detail,
+    extraire_liens_lies,
 )
+from collecteur.modele import Artwork
+
+URL = "https://www.clevelandart.org/art/1915.534"
+
+# Compte sur la page enregistree : la fiche declare exactement cinq oeuvres
+# voisines dans artworksForSeeAlso. Retirer une entree de la fixture fait chuter
+# ce nombre -- le test le remarquerait.
+VOISINES_ATTENDUES = 5
+
+
+def _html_next_data(charge: dict) -> str:
+    """Fabrique une page minimale portant un bloc __NEXT_DATA__ donne."""
+    bloc = json.dumps(charge)
+    script = f'<script id="__NEXT_DATA__" type="application/json">{bloc}</script>'
+    return f"<html><body>{script}</body></html>"
 
 
 def test_le_parseur_fonctionne_sur_du_html_malforme() -> None:
-    """Seul test executable sans cible : il porte sur le choix de `lxml`.
-
-    Une balise non fermee ne doit pas faire tomber le parsing. C'est la raison
-    pour laquelle `lxml` est retenu plutot qu'un parseur strict, et cette raison
-    doit etre verifiable, pas seulement affirmee dans le rapport.
-    """
+    """Une balise non fermee ne doit pas faire tomber le parsing : c'est la
+    raison pour laquelle `lxml` est retenu plutot qu'un parseur strict."""
     soupe = analyser("<div><p>Titre<span>sans fermeture</div>")
     assert soupe.get_text(strip=True) == "Titresans fermeture"
 
 
-@besoin_de_cible
-def test_nombre_d_objets_extraits(page_liste: str) -> None:
-    from collecteur.extraction import extraire_liste
-
-    objets = extraire_liste(page_liste, "https://exemple.invalid/")
-    assert len(objets) == NOMBRE_ATTENDU
-
-
-@besoin_de_cible
-def test_chaque_objet_porte_les_champs_minimaux(page_liste: str) -> None:
-    from collecteur.extraction import extraire_liste
-
-    # A remplacer par les champs minimaux exacts de la fiche de cible.
-    champs_minimaux: set[str] = set()
-    for objet in extraire_liste(page_liste, "https://exemple.invalid/"):
-        assert champs_minimaux <= set(objet), f"champs absents : {champs_minimaux - set(objet)}"
+def test_extraire_detail_rend_les_cinq_champs(page_detail: str) -> None:
+    brut = extraire_detail(page_detail, URL)
+    assert brut["item_id"] == "1915.534"
+    assert brut["title"] == "Nathaniel Hurd"
+    assert brut["date_text"] == "c. 1765"
+    assert brut["medium"] == "oil on canvas"
+    assert "Copley" in brut["artist"]
+    assert brut["url"].endswith("/art/1915.534")
 
 
-@besoin_de_cible
-def test_ancrage_disparu_produit_une_erreur_bruyante() -> None:
-    """L'exigence la plus explicite de l'enonce sur les selecteurs.
+def test_detail_construit_une_oeuvre_valide(page_detail: str) -> None:
+    """Le contrat complet : de la page a l'objet Pydantic valide et exportable."""
+    oeuvre = Artwork.depuis_brut(extraire_detail(page_detail, URL), URL)
+    assert oeuvre.item_id == "1915.534"
+    assert oeuvre.cle_dedup == "1915.534"
+    assert oeuvre.title == "Nathaniel Hurd"
+    assert str(oeuvre.url).endswith("/art/1915.534")
 
-    « Un champ obligatoire qui devient introuvable doit produire un signal
-    visible, pas un enregistrement silencieusement incomplet. »
 
-    On le verifie en retirant l'ancrage de la fixture : le code doit lever, pas
-    renvoyer un objet a moitie vide.
-    """
-    from collecteur.extraction import extraire_liste
+def test_les_oeuvres_voisines_alimentent_le_front(page_detail: str) -> None:
+    liens = extraire_liens_lies(page_detail, URL)
+    assert len(liens) == VOISINES_ATTENDUES
+    assert all("/art/" in lien for lien in liens)
+    assert "https://www.clevelandart.org/art/1966.385" in liens
 
-    html_sans_ancrage = "<html><body><div class='vide'></div></body></html>"
+
+def test_oeuvre_anonyme_donne_un_artiste_absent() -> None:
+    """absent != vide : une oeuvre sans createur declare doit produire artist=None,
+    pas une chaine vide -- c'est une information, pas un ancrage rate."""
+    html = _html_next_data(
+        {
+            "props": {
+                "pageProps": {
+                    "artworkData": {
+                        "accession_number": "0000.0",
+                        "title": "Sans titre",
+                        "creators": [],
+                        "url": "https://clevelandart.org/art/0000.0",
+                    }
+                }
+            }
+        }
+    )
+    oeuvre = Artwork.depuis_brut(extraire_detail(html, URL), URL)
+    assert oeuvre.artist is None
+
+
+def test_titre_absent_produit_une_erreur_bruyante() -> None:
+    """L'exigence la plus explicite de l'enonce : un champ obligatoire introuvable
+    leve, il ne produit pas un enregistrement a moitie vide."""
+    html = _html_next_data(
+        {
+            "props": {
+                "pageProps": {
+                    "artworkData": {
+                        "accession_number": "1915.534",
+                    }
+                }
+            }
+        }
+    )
     with pytest.raises(ChampObligatoireAbsent):
-        extraire_liste(html_sans_ancrage, "https://exemple.invalid/")
+        extraire_detail(html, URL)
+
+
+def test_bloc_de_donnees_absent_produit_une_erreur_bruyante() -> None:
+    with pytest.raises(ChampObligatoireAbsent):
+        extraire_detail("<html><body>page sans donnees</body></html>", URL)

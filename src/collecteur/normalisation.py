@@ -6,21 +6,20 @@ la normalisation dit comment interpreter. C'est aussi ce qui les rend testables
 sans reseau, exigence de la rubrique 6 de l'enonce.
 
 Chaque fonction retourne `None` quand l'entree ne permet aucune conclusion.
-Elle ne devine jamais. Un prix illisible devient `None` et l'objet part en rejet
-avec son motif ; il ne devient pas 0.
+Elle ne devine jamais : une valeur illisible devient `None` et l'objet part en
+rejet avec son motif, plutot que d'etre comble par une valeur par defaut.
 """
 
 from __future__ import annotations
 
 import re
 import unicodedata
-from decimal import Decimal, InvalidOperation
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
 # Blancs Unicode que `str.strip` ignore et que les sites emploient couramment.
 # Ecrits en echappements plutot qu'en caracteres litteraux : a l'oeil, ils sont
 # indiscernables d'une espace ordinaire dans un editeur, et un relecteur de bonne
-# foi les "corrigerait" en cassant silencieusement le parsing des prix.
+# foi les "corrigerait" en cassant silencieusement la comparaison des textes.
 ESPACE_INSECABLE = "\u00a0"  # NO-BREAK SPACE        -- "1 299" sur les sites francais
 ESPACE_INSEC_FINE = "\u202f"  # NARROW NO-BREAK SPACE -- meme role, variante typographique
 _BLANCS = (
@@ -31,42 +30,6 @@ _BLANCS = (
     + "\u200a"  # HAIR SPACE
     + "\ufeff"  # ZERO WIDTH NO-BREAK SPACE (BOM rencontre en milieu de flux)
 )
-
-# Separateurs de milliers acceptes, en plus du point et de la virgule.
-_SEPARATEURS_MILLIERS = " " + ESPACE_INSECABLE + ESPACE_INSEC_FINE
-
-# Un nombre, avec separateurs de milliers et decimale au point ou a la virgule.
-_MOTIF_NOMBRE = re.compile(
-    r"[-+]?\d{1,3}(?:[" + _SEPARATEURS_MILLIERS + r".,]\d{3})*(?:[.,]\d+)?"
-    r"|[-+]?\d+(?:[.,]\d+)?"
-)
-
-# Symboles et codes monetaires les plus courants sur les cibles du TP.
-_DEVISES = {
-    "€": "EUR",
-    "eur": "EUR",
-    "$": "USD",
-    "us$": "USD",
-    "usd": "USD",
-    "£": "GBP",
-    "gbp": "GBP",
-    "₹": "INR",
-    "rs": "INR",
-    "rs.": "INR",
-    "inr": "INR",
-    "¥": "JPY",
-    "jpy": "JPY",
-    "r": "ZAR",
-    "zar": "ZAR",
-    "s$": "SGD",
-    "sgd": "SGD",
-    "nz$": "NZD",
-    "nzd": "NZD",
-    "c$": "CAD",
-    "cad": "CAD",
-    "a$": "AUD",
-    "aud": "AUD",
-}
 
 
 def normaliser_texte(brut: str | None, *, vide_en_none: bool = True) -> str | None:
@@ -91,72 +54,6 @@ def normaliser_texte(brut: str | None, *, vide_en_none: bool = True) -> str | No
     if not texte and vide_en_none:
         return None
     return texte
-
-
-def normaliser_prix(brut: str | None) -> Decimal | None:
-    """Extrait un montant d'une chaine affichee, en `Decimal`.
-
-    `Decimal` et non `float` : 0.1 + 0.2 != 0.3 en binaire, et un prix qui
-    derive au centieme dans un fichier de sortie est un defaut de donnee.
-
-    Le point delicat est le separateur. « 1,299 » vaut 1299 en anglais et 1.299
-    en francais. La regle retenue, documentee et donc defendable :
-
-      - un separateur suivi d'exactement trois chiffres, et suivi d'autre chose
-        qu'une fin de nombre, est un separateur de milliers ;
-      - sinon, le dernier separateur rencontre est la decimale.
-
-    Elle echoue sur « 1,250 » signifiant 1,25 EUR ecrit avec trois decimales :
-    ce cas est rare sur les cibles du TP, et l'echec est silencieux. C'est une
-    limite a citer en rubrique 9 plutot qu'a passer sous silence.
-    """
-    if brut is None:
-        return None
-    texte = normaliser_texte(brut)
-    if texte is None:
-        return None
-    correspondance = _MOTIF_NOMBRE.search(texte)
-    if correspondance is None:
-        return None
-
-    nombre = correspondance.group(0)
-    for blanc in _SEPARATEURS_MILLIERS:
-        nombre = nombre.replace(blanc, "")
-
-    dernier_point, derniere_virgule = nombre.rfind("."), nombre.rfind(",")
-    decimale = max(dernier_point, derniere_virgule)
-    if decimale == -1:
-        propre = nombre
-    else:
-        chiffres_apres = len(nombre) - decimale - 1
-        if chiffres_apres == 3 and (dernier_point == -1 or derniere_virgule == -1):
-            # Un seul type de separateur, suivi de trois chiffres : milliers.
-            propre = nombre.replace(".", "").replace(",", "")
-        else:
-            entier = nombre[:decimale].replace(".", "").replace(",", "")
-            propre = f"{entier}.{nombre[decimale + 1 :]}"
-
-    try:
-        return Decimal(propre)
-    except InvalidOperation:
-        return None
-
-
-def detecter_devise(brut: str | None, *, defaut: str | None = None) -> str | None:
-    """Deduit un code ISO 4217 du symbole affiche a cote du prix.
-
-    Renvoie `defaut` si aucun symbole n'est reconnu. Sur une cible qui n'affiche
-    jamais sa devise, le rapport doit dire d'ou vient la valeur retenue : une
-    devise codee en dur qui ne vient pas de la page est une hypothese, et elle
-    se declare.
-    """
-    if brut is None:
-        return defaut
-    texte = (normaliser_texte(brut) or "").lower()
-    for symbole, code in sorted(_DEVISES.items(), key=lambda paire: -len(paire[0])):
-        if symbole in texte:
-            return code
-    return defaut
 
 
 def normaliser_url(brut: str | None, base: str) -> str | None:

@@ -1,7 +1,8 @@
 # Collecteur Web explicable — TP de groupe
 
-> **État : socle du collecteur livré et vérifié. Site 1 (S32) collecté.
+> **État : site 1 (S32 — Cleveland Museum of Art) implémenté, collecté et vérifié.
 > Site 2 en cours d'intégration.**
+> Diagnostic, stratégie d'acquisition et preuves dans `docs/fiche_descriptive.md`.
 
 Collecteur de données Web écrit pour le TP du module « Web Scraping moderne et
 industrialisation » (Semifir, formateur Adrien Vossough).
@@ -19,34 +20,39 @@ de 2 ou 3 sont autorisés, et un groupe de 3 traite 2 sites au total.
 
 ### Répartition et contribution
 
-| Site | Cible | Branche | Ma contribution |
+| Site | Cible | État | Contributions |
 |---|---|---|---|
-| 1 | **S32** — Cleveland Museum of Art | `s32-cleveland` | audit technique complet, 12 tests de conformité `robots.txt` (`Crawl-delay` de 10 s relevé automatiquement, `/api` refusé avant toute requête), correctif de propagation d'URL dans les rejets, retrait de 90 lignes de code mort — 4 commits |
-| 2 | à intégrer | en attente du push | intégration et vérification dès réception |
+| 1 | **S32** — Cleveland Museum of Art | fusionné dans `main` | Walid Hdilou : diagnostic, extraction, modèle `Artwork`, parcours de collecte, fiche descriptive. Joud Atallah : audit technique complet, 12 tests de conformité `robots.txt` (`Crawl-delay` de 10 s relevé automatiquement, `/api` refusé avant toute requête), correctif de propagation d'URL dans les rejets, retrait de 90 lignes de code mort |
+| 2 | à intégrer | en attente | intégration et vérification dès réception |
+
+Le détail par auteur se lit dans l'historique : `git log --format='%an %s'`.
 
 ### Organisation du dépôt
 
-Une branche par site, `main` portant le socle commun. C'est ce qui rend le
-travail à plusieurs praticable sans conflit : les cinq modules génériques
-(configuration, acquisition, normalisation, modèle et export, journalisation)
-vivent sur `main` et servent aux deux sites, tandis que chaque site n'ajoute
-que son module d'extraction et sa classe métier.
+`main` porte le **socle commun** et les sites au fur et à mesure de leur
+intégration. Chaque site est développé sur sa branche puis fusionné.
 
-Le bénéfice est mesurable : la conformité au `robots.txt`, le délai garanti
-entre deux requêtes, la gestion des 429 et l'arrêt sur refus explicite sont
-écrits et testés **une seule fois**, et valent pour les deux sites.
+C'est ce qui rend le travail à plusieurs praticable sans conflit : les cinq
+modules génériques (configuration, acquisition, normalisation, modèle et export,
+journalisation) sont communs aux deux sites, et **seul `extraction.py` connaît la
+cible**. Un site se branche en écrivant un module d'extraction et une classe
+métier, sans toucher au reste.
 
-## Cible et périmètre
+Le bénéfice est mesurable : la conformité au `robots.txt`, le délai garanti entre
+deux requêtes, la gestion des 429 et l'arrêt sur refus explicite sont écrits et
+testés **une seule fois**, et valent pour les deux sites.
+
+## Site 1 — cible et périmètre
 
 | | |
 |---|---|
-| Identifiant de cible | `S__` |
-| Site | `<nom>` |
-| URL de départ | `<URL>` |
-| Objet collecté | `<Product / Destination / Artwork / …>` |
-| Volume plafond | `<n>` objets — **plafond de la fiche de cible, jamais un objectif** |
-| Champs minimaux | `<liste>` |
-| Rendu observé | `<HTML servi côté serveur / contenu absent sans JavaScript>` |
+| Identifiant de cible | S32 |
+| Site | Cleveland Museum of Art |
+| URL de départ | https://www.clevelandart.org/art/collection/search |
+| Objet collecté | Artwork |
+| Volume plafond | 30 objets — **plafond de la fiche de cible, jamais un objectif** |
+| Champs minimaux | `title`, `artist`, `date_text`, `medium`, `url` |
+| Rendu observé | recherche : contenu absent sans JavaScript ; **fiches détail : servies côté serveur** |
 
 Le diagnostic complet, preuves à l'appui, est dans `docs/fiche_descriptive.md`.
 
@@ -55,7 +61,8 @@ Le diagnostic complet, preuves à l'appui, est dans `docs/fiche_descriptive.md`.
 - Python **3.11 ou supérieur** (le module `tomllib` de la bibliothèque standard
   est utilisé pour lire la configuration)
 - Aucun compte, aucune clé d'API, aucune variable d'environnement
-- `<Playwright et son navigateur — uniquement si le diagnostic conclut à une cible SPA>`
+- **Aucun navigateur** : le diagnostic conclut que les fiches détail sont servies
+  côté serveur, la donnée est donc dans la réponse HTTP (voir `docs/fiche_descriptive.md`, section 4)
 
 ## Installation
 
@@ -143,17 +150,25 @@ et non pas seulement affirmé ici.
 | `samples/sample_output.json` | échantillon de 10 objets, relisible sur GitHub | **oui** |
 | `logs/collecte.log` | traces horodatées | non |
 
-Le prix est sérialisé en **chaîne** et manipulé en `Decimal`, jamais en `float` :
-`129.90` n'a pas de représentation binaire exacte, et un prix qui dérive au
-centième dans un fichier de sortie est un défaut de donnée, pas d'affichage.
+Les dates de création restent en **texte** (`date_text : "c. 1765"`) et ne sont pas
+converties en date. Ce n'est pas un raccourci : le musée date ses œuvres en
+« c. 1765 », « 1957 », « fin du XVIIIe siècle ». Forcer ces valeurs dans un type
+`date` inventerait une précision que la source ne porte pas. La normalisation
+appliquée est celle du **texte** — NFC et blancs Unicode — et de l'**URL**, qui
+sont les deux endroits où deux écritures d'une même valeur casseraient la
+déduplication.
 
 Convention de valeur absente, tenue dans tout le projet :
 
-| Valeur | Signification |
-|---|---|
-| `null` | le champ n'existe pas sur la page |
-| `""` | le champ existe et la page le laisse vide |
-| `0` | le champ existe et vaut zéro |
+| Valeur | Signification | Cas réel sur S32 |
+|---|---|---|
+| `null` | le champ n'existe pas sur la page | œuvre anonyme → `artist: null` |
+| `""` | le champ existe et la page le laisse vide | — |
+| `0` | le champ existe et vaut zéro | — |
+
+Cette distinction porte ici tout son sens : `artist: null` signale une œuvre que
+le musée **n'attribue à personne**, pas un sélecteur qui a échoué. Une chaîne vide
+confondrait les deux.
 
 ## Usage responsable — règles effectivement appliquées
 
@@ -180,13 +195,22 @@ Convention de valeur absente, tenue dans tout le projet :
 
 ## Limites connues
 
-`<à compléter — au moins trois limites réelles et mesurables, rubrique 9 du rapport>`
-
-Une limite déjà identifiable, indépendante de la cible : la déduplication vit en
-mémoire (`normalisation.Deduplicateur`). Elle ne survit pas à la fin du processus,
-donc deux exécutions successives ne se dédoublonnent pas entre elles. Choix assumé
-sur un volume de 60 objets au plus — une base de données serait ici de la
-complexité gratuite, ce que la grille pénalise.
+1. **Découverte bornée par le voisinage.** Le parcours part de graines et suit les
+   œuvres liées (`artworksForSeeAlso`). Il n'atteint donc que la composante du
+   catalogue connexe aux graines, pas l'ensemble des dizaines de milliers d'œuvres.
+   C'est un choix imposé : la recherche exhaustive passe par `/api`, interdit.
+2. **Filtres et pagination non couverts.** Ils vivent derrière `/api` ; les
+   démontrer exigerait de contourner le robots.txt. Le front de collecte
+   (`artworksForSeeAlso`) en est l'équivalent conforme, mais il ne permet pas de
+   filtrer par département ou par date.
+3. **Dépendance au format `__NEXT_DATA__`.** L'extraction lit le JSON injecté par
+   Next.js ; une refonte du site vers un rendu 100 % client casserait la collecte
+   (détecté par `pytest`, repli documenté en fiche §7).
+4. **Déduplication non persistante.** Elle vit en mémoire
+   (`normalisation.Deduplicateur`) et ne survit pas à la fin du processus : deux
+   exécutions successives ne se dédoublonnent pas entre elles. Choix assumé sur un
+   plafond de 30 objets — une base de données serait ici de la complexité gratuite,
+   ce que la grille pénalise explicitement.
 
 ## Structure du dépôt
 
@@ -195,17 +219,21 @@ complexité gratuite, ce que la grille pénalise.
 ├── README.md
 ├── requirements.txt
 ├── pyproject.toml
-├── config.example.toml          aucun secret
+├── config.example.toml          aucun secret ; graines du parcours S32
 ├── src/collecteur/              six responsabilités, un module chacune
-├── tests/
-│   ├── fixtures/                pages enregistrées — vérification sans réseau
-│   ├── test_extraction.py       contrôle 1 : nombre d'objets extraits
-│   ├── test_normalisation.py    contrôle 2 : normalisation du prix
+├── tests/                       54 tests, aucun ne touche le réseau
+│   ├── fixtures/
+│   │   ├── page_detail.html     fiche 1915.534 enregistrée telle quelle (116 Ko)
+│   │   └── robots.txt           robots.txt réel de la cible, enregistré
+│   ├── test_extraction.py       contrôle 1 : champs extraits de la fiche enregistrée
+│   ├── test_normalisation.py    contrôle 2 : normalisation texte et URL
 │   ├── test_deduplication.py    contrôle 3 : déduplication et rejet d'incomplet
+│   ├── test_robots_s32.py       conformité robots.txt : Crawl-delay 10 s, /api refusé
 │   └── test_export.py           l'écrivain JSONL lui-même
 ├── samples/sample_output.json   échantillon de 10 objets
 └── docs/
     ├── architecture.md
+    ├── fiche_descriptive.md     diagnostic S32, preuves à l'appui
     ├── AI_USAGE.md
     ├── fiche_descriptive_template.md
     └── CHECKLIST_RENDU.md

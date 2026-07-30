@@ -1,0 +1,15 @@
+# * 
+User-agent: * 
+Crawl-delay: 10 
+Disallow: /membership 
+Disallow: /orders 
+Disallow: /api 
+Disallow: /errors 
+Disallow: /404 
+Disallow: /500 
+
+# Host 
+Host: https://www.clevelandart.org 
+
+# Sitemaps 
+Sitemap: https://www.clevelandart.org/sitemap.xml

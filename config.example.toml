@@ -9,25 +9,30 @@
 
 [cible]
 # Identifiant de cible attribue par le formateur (S01, S17, S24, S61...).
-id = "S__"
-nom = ""
-# URL de depart exacte, telle qu'indiquee dans la fiche de cible.
-url_depart = ""
+id = "S32"
+nom = "Cleveland Museum of Art"
+# URL de depart exacte, telle qu'indiquee dans la fiche de cible. Elle sert au
+# diagnostic et a l'origine du robots.txt ; le parcours reel, lui, part des
+# graines ci-dessous (la recherche passe par /api, interdit -- voir la fiche).
+url_depart = "https://www.clevelandart.org/art/collection/search"
 
 [collecte]
-# Plafond d'objets, jamais un objectif. Doit rester <= au volume de la fiche.
-max_objets = 20
-# Plafond de pages de liste visitees. Garde-fou contre un piege a crawler.
-max_pages = 5
+# Plafond d'objets, jamais un objectif. La fiche de cible plafonne a 30.
+max_objets = 30
+# Plafond de fiches visitees. Garde-fou contre un piege a crawler.
+max_pages = 60
 # Delai minimal entre deux requetes, en secondes.
-# Si le robots.txt de la cible declare un Crawl-delay, cette valeur doit lui
-# etre AU MOINS egale. La valeur retenue et sa source sont justifiees dans le
-# rapport, rubrique 2.1.
-delai_secondes = 1.0
+# Le robots.txt de la cible declare « Crawl-delay: 10 » ; le collecteur releve
+# de toute facon le delai au Crawl-delay, mais on l'inscrit ici pour que la
+# configuration dise la verite sans dependre d'une lecture reseau.
+delai_secondes = 10.0
 # Une requete a la fois par defaut. Ne pas augmenter sans raison ecrite.
 concurrence = 1
 # Suivre les pages de detail en plus des pages de liste.
 suivre_detail = true
+# Points d'entree du parcours (numeros d'accession). Le front est amorce par
+# ces graines puis etendu via les oeuvres liees de chaque fiche.
+graines = ["1915.534", "1966.385", "1948.460", "1964.351", "1996.272"]
 
 [http]
 # User-Agent identifiant : on ne se fait pas passer pour un navigateur.

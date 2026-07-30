@@ -22,8 +22,12 @@ Les trois sont distincts, et le rapport le demande explicitement. Un
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
+
+from . import normalisation
+from .extraction import ChampObligatoireAbsent
 
 
 def horodatage() -> datetime:
@@ -75,6 +79,61 @@ class ObjetCollecte(BaseModel):
         deux cas s'applique.
         """
         return self.item_id
+
+
+class Artwork(ObjetCollecte):
+    """Une oeuvre du Cleveland Museum of Art (cible S32).
+
+    Les cinq champs minimaux de la fiche de cible sont `title`, `artist`,
+    `date_text`, `medium`, `url`. Seul `title` est obligatoire : une oeuvre sans
+    titre n'existe pas dans le catalogue du musee, alors qu'une oeuvre sans
+    auteur connu (anonyme) est frequente. La distinction absent / vide de
+    `ObjetCollecte` porte ici tout son sens : `artist = None` signale une oeuvre
+    que le musee n'attribue a personne, pas un ancrage rate.
+    """
+
+    title: str = Field(..., min_length=1, description="Titre de l'oeuvre, tel qu'affiche.")
+    artist: str | None = Field(
+        None, description="Ligne d'attribution complete. None si l'oeuvre est anonyme."
+    )
+    date_text: str | None = Field(
+        None, description="Date de creation en toutes lettres, ex. « c. 1765 »."
+    )
+    medium: str | None = Field(None, description="Technique et materiaux, ex. « oil on canvas ».")
+    url: HttpUrl = Field(..., description="URL de la fiche de l'oeuvre sur le site du musee.")
+
+    @property
+    def cle_dedup(self) -> str:
+        """Le numero d'accession identifie l'oeuvre de facon stable.
+
+        Il est grave dans l'objet physique et ne change pas quand le musee
+        reorganise ses URL ; il est donc une meilleure cle que l'URL elle-meme.
+        """
+        return self.item_id
+
+    @classmethod
+    def depuis_brut(cls, brut: dict[str, Any], source_url: str) -> Artwork:
+        """Construit une oeuvre validee a partir du dictionnaire brut d'extraction.
+
+        L'extraction ne rend que des chaines telles que la page les porte ; la
+        normalisation du texte (blancs Unicode, accents composes) se fait ici,
+        au seul endroit qui assemble l'objet metier.
+        """
+        titre = normalisation.normaliser_texte(brut.get("title"))
+        if titre is None:
+            raise ChampObligatoireAbsent("title", source_url)
+        url = normalisation.normaliser_url(brut.get("url"), source_url)
+        if url is None:
+            raise ChampObligatoireAbsent("url", source_url)
+        return cls(
+            item_id=brut["item_id"],
+            source_url=source_url,
+            title=titre,
+            artist=normalisation.normaliser_texte(brut.get("artist")),
+            date_text=normalisation.normaliser_texte(brut.get("date_text")),
+            medium=normalisation.normaliser_texte(brut.get("medium")),
+            url=url,
+        )
 
 
 class Rejet(BaseModel):
