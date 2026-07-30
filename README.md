@@ -11,9 +11,21 @@ moderne et industrialisation » (Semifir, formateur Adrien Vossough).
 
 | | |
 |---|---|
-| Nom et prénom | `<à compléter>` |
-| Groupe | `<à compléter>` |
-| Format | TP **individuel** — production personnelle |
+| Nom et prénom | **Joud Atallah** |
+| Format | TP **strictement individuel** |
+| Dépôt | https://github.com/Joud04/web_scraping |
+
+Ce dépôt correspond à ma production individuelle. L'énoncé est explicite sur ce
+point — *« Format : strictement individuel »*, et *« les échanges de méthode entre
+élèves sont autorisés ; le partage d'un dépôt, d'un code ou d'un rapport ne l'est
+pas »*. La branche `main` ne contient donc que du code que j'ai écrit et que je
+peux modifier sous les yeux du formateur.
+
+> Une branche `s32-cleveland` existe sur ce dépôt : c'est le travail de Walid
+> Hdilou sur la cible S32, que j'ai relu et pour lequel j'ai proposé des
+> correctifs. Elle n'est **pas** fusionnée dans `main` et ne fait pas partie de
+> mon rendu. La relecture croisée relève de l'échange de méthode, autorisé ; la
+> reprise du code ne le serait pas.
 
 ## Cible et périmètre
 
@@ -189,3 +201,7 @@ complexité gratuite, ce que la grille pénalise.
     ├── fiche_descriptive_template.md
     └── CHECKLIST_RENDU.md
 ```
+
+Le rapport `ATALLAH_Joud_TP_Scraping.docx` vit à la racine mais **n'est pas
+versionné** (`.gitignore`) : il porte des données personnelles et part au
+formateur par courriel, pas sur un dépôt public.

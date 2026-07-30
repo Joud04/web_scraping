@@ -1,4 +1,4 @@
-# Usage de l'IA
+# Usage de l'IA — Joud Atallah
 
 > Exigé par l'énoncé. L'usage est autorisé et **ne pénalise pas**. Ce qui est évalué,
 > c'est l'exactitude de la déclaration.
