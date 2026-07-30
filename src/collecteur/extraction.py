@@ -43,7 +43,9 @@ c'est ecrit noir sur blanc dans l'enonce.
 
 from __future__ import annotations
 
+import json
 from typing import Any
+from urllib.parse import urlsplit
 
 from bs4 import BeautifulSoup
 
@@ -67,32 +69,88 @@ def analyser(html: str) -> BeautifulSoup:
     return BeautifulSoup(html, "lxml")
 
 
-def extraire_liste(html: str, url_base: str) -> list[dict[str, Any]]:
-    """Extrait les objets d'une page de liste. UN dictionnaire par objet vu.
+def _bloc_next_data(html: str) -> dict[str, Any]:
+    """Extrait et parse le bloc `__NEXT_DATA__` que Next.js injecte dans la page.
 
-    A implementer apres le diagnostic de la cible.
+    La cible rend ses fiches d'oeuvre cote serveur : toute la donnee tient dans
+    ce bloc JSON de la reponse HTTP, ce qui rend inutile le pilotage d'un
+    navigateur. Le bloc est retrouve par le parseur, pas par une regex : une
+    accolade a l'interieur d'une chaine JSON ne doit pas tromper la recherche.
     """
-    raise NotImplementedError("Cible non attribuee. Voir l'ordre de travail en tete de ce module.")
+    balise = analyser(html).find("script", id="__NEXT_DATA__")
+    if balise is None or not balise.string:
+        raise ChampObligatoireAbsent("__NEXT_DATA__", "")
+    return json.loads(balise.string)
+
+
+def _origine(url: str) -> str:
+    parties = urlsplit(url)
+    return f"{parties.scheme}://{parties.netloc}"
+
+
+def _url_oeuvre(accession: str, origine: str) -> str:
+    return f"{origine}/art/{accession}"
+
+
+def _attribution(creators: list[dict[str, Any]] | None) -> str | None:
+    """Assemble la ligne d'auteur affichee, ou None si l'oeuvre est anonyme.
+
+    Le musee attribue une oeuvre a zero, un ou plusieurs createurs. Le champ
+    `description` porte la ligne complete telle qu'affichee (« John Singleton
+    Copley (American, ...) ») ; `name` en est le repli quand elle manque.
+    """
+    if not creators:
+        return None
+    lignes = [c.get("description") or c.get("name") for c in creators]
+    lignes = [ligne for ligne in lignes if ligne]
+    return "; ".join(lignes) if lignes else None
 
 
 def extraire_detail(html: str, url_base: str) -> dict[str, Any]:
-    """Extrait les champs supplementaires d'une page de detail.
+    """Extrait les champs d'une fiche d'oeuvre. UN dictionnaire de chaines brutes.
 
-    A implementer apres le diagnostic de la cible. A supprimer si la cible n'a
-    pas de page de detail (S14, S18, S61) -- une fonction morte dans un depot
-    rendu est un point perdu au critere « architecture ».
+    `title` et le numero d'accession sont obligatoires : leur absence n'est pas
+    une oeuvre incomplete a exporter en silence, c'est le signe que la structure
+    de la page a change. On leve alors `ChampObligatoireAbsent`, que le pipeline
+    inscrira en rejet avec son motif.
     """
-    raise NotImplementedError("Cible non attribuee. Voir l'ordre de travail en tete de ce module.")
+    props = _bloc_next_data(html).get("props", {}).get("pageProps", {})
+    art = props.get("artworkData")
+    if not art:
+        raise ChampObligatoireAbsent("artworkData", url_base)
+
+    accession = art.get("accession_number")
+    if not accession:
+        raise ChampObligatoireAbsent("accession_number", url_base)
+    if not art.get("title"):
+        raise ChampObligatoireAbsent("title", url_base)
+
+    return {
+        "item_id": str(accession),
+        "title": art.get("title"),
+        "artist": _attribution(art.get("creators")),
+        "date_text": art.get("date_text") or art.get("creation_date"),
+        "medium": art.get("technique") or art.get("medium_mapped"),
+        "url": art.get("url") or _url_oeuvre(str(accession), _origine(url_base)),
+    }
 
 
-def url_page_suivante(html: str, url_base: str) -> str | None:
-    """Renvoie l'URL de la page suivante, ou None si c'est la derniere.
+def extraire_liens_lies(html: str, url_base: str) -> list[str]:
+    """Renvoie les URL des oeuvres liees, pour alimenter le front de collecte.
 
-    Preferer un signal declare par la page (`<a rel="next">`) a un compteur
-    incremente jusqu'au 404 : le premier s'arrete tout seul, le second demande
-    une requete inutile pour decouvrir qu'il n'y avait plus rien.
-
-    A implementer apres le diagnostic. A supprimer si la cible n'a pas de
-    pagination.
+    La recherche du site passe par `/api`, chemin interdit par le robots.txt
+    (voir docs/fiche_descriptive.md, section 2) : on ne peut donc pas parcourir
+    une page de liste. Le catalogue reste neanmoins explorable de proche en
+    proche -- chaque fiche declare ses oeuvres voisines dans `artworksForSeeAlso`.
+    C'est ce lien, servi cote serveur et sur un chemin autorise, qui remplace la
+    pagination classique.
     """
-    raise NotImplementedError("Cible non attribuee. Voir l'ordre de travail en tete de ce module.")
+    props = _bloc_next_data(html).get("props", {}).get("pageProps", {})
+    origine = _origine(url_base)
+    liens, vus = [], set()
+    for oeuvre in props.get("artworksForSeeAlso") or []:
+        accession = oeuvre.get("accession_number")
+        if accession and accession not in vus:
+            vus.add(accession)
+            liens.append(_url_oeuvre(str(accession), origine))
+    return liens
