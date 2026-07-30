@@ -122,17 +122,25 @@ et non pas seulement affirmé ici.
 | `samples/sample_output.json` | échantillon de 10 objets, relisible sur GitHub | **oui** |
 | `logs/collecte.log` | traces horodatées | non |
 
-Le prix est sérialisé en **chaîne** et manipulé en `Decimal`, jamais en `float` :
-`129.90` n'a pas de représentation binaire exacte, et un prix qui dérive au
-centième dans un fichier de sortie est un défaut de donnée, pas d'affichage.
+Les dates de création restent en **texte** (`date_text : "c. 1765"`) et ne sont pas
+converties en date. Ce n'est pas un raccourci : le musée date ses œuvres en
+« c. 1765 », « 1957 », « fin du XVIIIe siècle ». Forcer ces valeurs dans un type
+`date` inventerait une précision que la source ne porte pas. La normalisation
+appliquée est celle du **texte** — NFC et blancs Unicode — et de l'**URL**, qui
+sont les deux endroits où deux écritures d'une même valeur casseraient la
+déduplication.
 
 Convention de valeur absente, tenue dans tout le projet :
 
-| Valeur | Signification |
-|---|---|
-| `null` | le champ n'existe pas sur la page |
-| `""` | le champ existe et la page le laisse vide |
-| `0` | le champ existe et vaut zéro |
+| Valeur | Signification | Cas réel sur S32 |
+|---|---|---|
+| `null` | le champ n'existe pas sur la page | œuvre anonyme → `artist: null` |
+| `""` | le champ existe et la page le laisse vide | — |
+| `0` | le champ existe et vaut zéro | — |
+
+Cette distinction porte ici tout son sens : `artist: null` signale une œuvre que
+le musée **n'attribue à personne**, pas un sélecteur qui a échoué. Une chaîne vide
+confondrait les deux.
 
 ## Usage responsable — règles effectivement appliquées
 
@@ -171,11 +179,11 @@ Convention de valeur absente, tenue dans tout le projet :
    Next.js ; une refonte du site vers un rendu 100 % client casserait la collecte
    (détecté par `pytest`, repli documenté en fiche §7).
 
-Une quatrième limite, indépendante de la cible : la déduplication vit en
-mémoire (`normalisation.Deduplicateur`). Elle ne survit pas à la fin du processus,
-donc deux exécutions successives ne se dédoublonnent pas entre elles. Choix assumé
-sur un volume de 60 objets au plus — une base de données serait ici de la
-complexité gratuite, ce que la grille pénalise.
+4. **Déduplication non persistante.** Elle vit en mémoire
+   (`normalisation.Deduplicateur`) et ne survit pas à la fin du processus : deux
+   exécutions successives ne se dédoublonnent pas entre elles. Choix assumé sur un
+   plafond de 30 objets — une base de données serait ici de la complexité gratuite,
+   ce que la grille pénalise explicitement.
 
 ## Structure du dépôt
 
@@ -184,17 +192,21 @@ complexité gratuite, ce que la grille pénalise.
 ├── README.md
 ├── requirements.txt
 ├── pyproject.toml
-├── config.example.toml          aucun secret
+├── config.example.toml          aucun secret ; graines du parcours S32
 ├── src/collecteur/              six responsabilités, un module chacune
-├── tests/
-│   ├── fixtures/                pages enregistrées — vérification sans réseau
-│   ├── test_extraction.py       contrôle 1 : nombre d'objets extraits
-│   ├── test_normalisation.py    contrôle 2 : normalisation du prix
+├── tests/                       70 tests, aucun ne touche le réseau
+│   ├── fixtures/
+│   │   ├── page_detail.html     fiche 1915.534 enregistrée telle quelle (116 Ko)
+│   │   └── robots.txt           robots.txt réel de la cible, enregistré
+│   ├── test_extraction.py       contrôle 1 : champs extraits de la fiche enregistrée
+│   ├── test_normalisation.py    contrôle 2 : normalisation texte et URL
 │   ├── test_deduplication.py    contrôle 3 : déduplication et rejet d'incomplet
+│   ├── test_robots_s32.py       conformité robots.txt : Crawl-delay 10 s, /api refusé
 │   └── test_export.py           l'écrivain JSONL lui-même
 ├── samples/sample_output.json   échantillon de 10 objets
 └── docs/
     ├── architecture.md
+    ├── fiche_descriptive.md     diagnostic S32, preuves à l'appui
     ├── AI_USAGE.md
     ├── fiche_descriptive_template.md
     └── CHECKLIST_RENDU.md

@@ -73,12 +73,20 @@ def test_les_oeuvres_voisines_alimentent_le_front(page_detail: str) -> None:
 def test_oeuvre_anonyme_donne_un_artiste_absent() -> None:
     """absent != vide : une oeuvre sans createur declare doit produire artist=None,
     pas une chaine vide -- c'est une information, pas un ancrage rate."""
-    html = _html_next_data({"props": {"pageProps": {"artworkData": {
-        "accession_number": "0000.0",
-        "title": "Sans titre",
-        "creators": [],
-        "url": "https://clevelandart.org/art/0000.0",
-    }}}})
+    html = _html_next_data(
+        {
+            "props": {
+                "pageProps": {
+                    "artworkData": {
+                        "accession_number": "0000.0",
+                        "title": "Sans titre",
+                        "creators": [],
+                        "url": "https://clevelandart.org/art/0000.0",
+                    }
+                }
+            }
+        }
+    )
     oeuvre = Artwork.depuis_brut(extraire_detail(html, URL), URL)
     assert oeuvre.artist is None
 
@@ -86,9 +94,17 @@ def test_oeuvre_anonyme_donne_un_artiste_absent() -> None:
 def test_titre_absent_produit_une_erreur_bruyante() -> None:
     """L'exigence la plus explicite de l'enonce : un champ obligatoire introuvable
     leve, il ne produit pas un enregistrement a moitie vide."""
-    html = _html_next_data({"props": {"pageProps": {"artworkData": {
-        "accession_number": "1915.534",
-    }}}})
+    html = _html_next_data(
+        {
+            "props": {
+                "pageProps": {
+                    "artworkData": {
+                        "accession_number": "1915.534",
+                    }
+                }
+            }
+        }
+    )
     with pytest.raises(ChampObligatoireAbsent):
         extraire_detail(html, URL)
 

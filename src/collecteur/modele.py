@@ -99,9 +99,7 @@ class Artwork(ObjetCollecte):
     date_text: str | None = Field(
         None, description="Date de creation en toutes lettres, ex. « c. 1765 »."
     )
-    medium: str | None = Field(
-        None, description="Technique et materiaux, ex. « oil on canvas »."
-    )
+    medium: str | None = Field(None, description="Technique et materiaux, ex. « oil on canvas ».")
     url: HttpUrl = Field(..., description="URL de la fiche de l'oeuvre sur le site du musee.")
 
     @property
