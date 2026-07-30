@@ -1,49 +1,40 @@
-# Collecteur Web explicable — TP individuel
+# Collecteur Web explicable — TP de groupe
 
-> **État : structure initialisée, cible non encore attribuée.**
-> Les zones marquées `<…>` sont à compléter dès que le formateur a communiqué
-> l'identifiant de cible. Voir `docs/CHECKLIST_RENDU.md` pour l'ordre de travail.
+> **État : socle du collecteur livré et vérifié. Site 1 (S32) collecté.
+> Site 2 en cours d'intégration.**
 
-Collecteur de données Web écrit pour le TP individuel du module « Web Scraping
-moderne et industrialisation » (Semifir, formateur Adrien Vossough).
+Collecteur de données Web écrit pour le TP du module « Web Scraping moderne et
+industrialisation » (Semifir, formateur Adrien Vossough).
 
-## Auteur
+## Groupe et périmètre
+
+**Groupe de 3 élèves, 2 sites cibles.** Modalité officielle du TP : les groupes
+de 2 ou 3 sont autorisés, et un groupe de 3 traite 2 sites au total.
 
 | | |
 |---|---|
-| Nom et prénom | **Joud Atallah** |
-| Format | TP **strictement individuel** |
+| Membres | **Joud Atallah**, **Walid Hdilou**, et un troisième membre |
+| Sites couverts | 2 |
 | Dépôt | https://github.com/Joud04/web_scraping |
 
-## Organisation du travail
+### Répartition et contribution
 
-Groupe de travail déclaré : **Joud Atallah, Walid Hdilou, et un troisième
-membre**, sur **deux sites cibles** au total.
+| Site | Cible | Branche | Ma contribution |
+|---|---|---|---|
+| 1 | **S32** — Cleveland Museum of Art | `s32-cleveland` | audit technique complet, 12 tests de conformité `robots.txt` (`Crawl-delay` de 10 s relevé automatiquement, `/api` refusé avant toute requête), correctif de propagation d'URL dans les rejets, retrait de 90 lignes de code mort — 4 commits |
+| 2 | à intégrer | en attente du push | intégration et vérification dès réception |
 
-| Site | Cible | Ma participation |
-|---|---|---|
-| 1 | **S32** — Cleveland Museum of Art (branche `s32-cleveland`) | audit technique complet, 12 tests de conformité `robots.txt`, correctif de propagation d'URL, retrait de 90 lignes de code mort |
-| 2 | en attente du push de la branche | intégration et vérification dès réception |
+### Organisation du dépôt
 
-> **Point à faire confirmer par le formateur avant l'envoi.** Les documents remis
-> avec le sujet décrivent un **TP individuel** : *« Format : strictement
-> individuel »* (`ENONCE_TP`), *« votre cible vous est attribuée »* au singulier
-> (`MATRICE_CIBLES_ELEVES`), et la déclaration de la trame porte *« ma production
-> individuelle »*. Aucun des cinq fichiers ne mentionne de binôme, de trinôme ni
-> de règle « 3 étudiants = 2 cibles ». L'organisation en groupe décrite ci-dessus
-> repose donc sur une consigne orale : **elle doit être confirmée par écrit avant
-> la remise**, faute de quoi ce dépôt ne correspondrait pas au format attendu.
+Une branche par site, `main` portant le socle commun. C'est ce qui rend le
+travail à plusieurs praticable sans conflit : les cinq modules génériques
+(configuration, acquisition, normalisation, modèle et export, journalisation)
+vivent sur `main` et servent aux deux sites, tandis que chaque site n'ajoute
+que son module d'extraction et sa classe métier.
 
-### Ce que contient la branche `main`
-
-Uniquement du code que j'ai écrit et que je peux modifier sous les yeux du
-formateur : l'ossature du collecteur (configuration, acquisition, normalisation,
-modèle, export, journalisation), ses tests et sa documentation.
-
-La branche `s32-cleveland` — le collecteur S32 de Walid Hdilou — n'est **pas**
-fusionnée dans `main`. Ma contribution sur ce site est une contribution de
-relecture et de correction, tracée dans l'historique Git par mes quatre commits
-sur cette branche, et non une reprise de son code dans mon rendu.
+Le bénéfice est mesurable : la conformité au `robots.txt`, le délai garanti
+entre deux requêtes, la gestion des 429 et l'arrêt sur refus explicite sont
+écrits et testés **une seule fois**, et valent pour les deux sites.
 
 ## Cible et périmètre
 

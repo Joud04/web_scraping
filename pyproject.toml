@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "collecteur"
 version = "0.1.0"
-description = "Collecteur Web explicable - TP individuel Web Scraping"
+description = "Collecteur Web explicable - TP de groupe Web Scraping"
 requires-python = ">=3.11"
 dependencies = [
     "httpx>=0.28",

@@ -34,7 +34,7 @@ _RACINES_SPA = ('id="root"', 'id="app"', 'id="__next"', "ng-app", "data-reactroo
 def _analyser_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     analyseur = argparse.ArgumentParser(
         prog="collecteur",
-        description="Collecteur Web explicable -- TP individuel.",
+        description="Collecteur Web explicable -- TP de groupe (3 eleves, 2 sites).",
     )
     analyseur.add_argument("--version", action="version", version=f"collecteur {__version__}")
     analyseur.add_argument("--config", type=Path, default=None, help="Chemin du fichier TOML.")

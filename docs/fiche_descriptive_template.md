@@ -20,7 +20,7 @@
 Cible ................. S__ — <nom du site>
 URL de départ ......... <URL exacte>
 Date d'analyse ........ <AAAA-MM-JJ>
-Analyste .............. <Nom Prénom> (TP individuel)
+Analyste .............. <Nom Prénom> (groupe de 3 — 2 sites)
 Objet collecté ........ <Product | Destination | Artwork | Book | ...>
 Volume plafond ........ <n> objets (source : fiche de cible — plafond, pas objectif)
 Champs minimaux ....... <liste exacte issue de la fiche de cible>

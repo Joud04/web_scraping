@@ -1,4 +1,4 @@
-"""Collecteur Web explicable -- TP individuel.
+"""Collecteur Web explicable -- TP de groupe (3 eleves, 2 sites).
 
 Les six responsabilites exigees par l'enonce sont portees par six modules,
 un par responsabilite. Le schema de flux de docs/architecture.md pointe
