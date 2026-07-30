@@ -22,17 +22,13 @@ Les trois sont distincts, et le rapport le demande explicitement. Un
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from decimal import Decimal, InvalidOperation
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
 
 
 def horodatage() -> datetime:
-    """Date de collecte en UTC, toujours avec fuseau.
-
-    `datetime.now()` sans fuseau produit une donnee inexploitable des qu'elle
-    change de machine : rien n'indique si 14:00 est une heure de Paris ou de
-    New York. L'enonce demande le fuseau, ce n'est pas une formalite.
-    """
+    """Date de collecte en UTC, toujours avec fuseau."""
     return datetime.now(UTC)
 
 
@@ -40,8 +36,6 @@ class ObjetCollecte(BaseModel):
     """Socle de tout objet collecte. Ne s'instancie pas directement."""
 
     model_config = ConfigDict(
-        # Un champ inattendu venant de l'extraction est une erreur, pas un extra
-        # a conserver : il signale un decalage entre extraction et modele.
         extra="forbid",
         str_strip_whitespace=True,
         validate_assignment=True,
@@ -67,22 +61,46 @@ class ObjetCollecte(BaseModel):
 
     @property
     def cle_dedup(self) -> str:
-        """Cle de deduplication. A redefinir si l'identifiant ne suffit pas.
-
-        Par defaut, deux objets de meme `item_id` sont le meme objet. Sur une
-        cible ou l'identifiant se reconstruit depuis l'URL, un changement de
-        structure d'URL casserait cette regle : le rapport doit dire lequel des
-        deux cas s'applique.
-        """
         return self.item_id
 
 
-class Rejet(BaseModel):
-    """Objet ecarte, avec son motif. Ecrit dans data/rejets.jsonl.
+class Product(ObjetCollecte):
+    """Objet Produit pour la cible S19 (Automation Exercise)."""
 
-    Un rejet n'est pas une erreur a masquer : c'est la trace qui permet de
-    remplir la ligne « objets rejetes » du rapport et de la defendre.
-    """
+    name: str = Field(..., min_length=1)
+    price: Decimal | None = Field(default=None, description="Prix normalise en Decimal.")
+    currency: str | None = Field(default=None, description="Devise (ex: Rs, $, €).")
+    category: str | None = Field(default=None)
+    brand: str | None = Field(default=None)
+
+    @field_validator("price", mode="before")
+    @classmethod
+    def _normaliser_prix(cls, v: any) -> Decimal | None:
+        if v is None or (isinstance(v, str) and not v.strip()):
+            return None
+
+        # Nettoyage : on garde chiffres, points et virgules
+        s = str(v).replace(",", ".")
+        import re
+        match = re.search(r"(\d+[\.,]?\d*)", s)
+        if not match:
+            return None
+
+        try:
+            return Decimal(match.group(1))
+        except InvalidOperation:
+            return None
+
+    @field_validator("currency", mode="before")
+    @classmethod
+    def _extraire_devise(cls, v: any, info) -> str | None:
+        # Si on a le prix brut en entrée, on pourrait extraire la devise ici
+        # Mais on s'attend à ce que l'extracteur passe la devise séparément
+        return v if v else None
+
+
+class Rejet(BaseModel):
+    """Objet ecarte, avec son motif. Ecrit dans data/rejets.jsonl."""
 
     model_config = ConfigDict(extra="forbid")
 
