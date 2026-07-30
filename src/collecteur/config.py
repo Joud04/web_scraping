@@ -35,6 +35,11 @@ class Collecte:
     delai_secondes: float = 1.0
     concurrence: int = 1
     suivre_detail: bool = True
+    # Numeros d'accession servant de points d'entree au parcours. La recherche
+    # du site passant par un chemin interdit (voir la fiche descriptive), le
+    # front de collecte est amorce par ces graines puis etendu de proche en
+    # proche. Elles vivent dans la configuration, pas dans le code.
+    graines: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
