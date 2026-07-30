@@ -15,17 +15,35 @@ moderne et industrialisation » (Semifir, formateur Adrien Vossough).
 | Format | TP **strictement individuel** |
 | Dépôt | https://github.com/Joud04/web_scraping |
 
-Ce dépôt correspond à ma production individuelle. L'énoncé est explicite sur ce
-point — *« Format : strictement individuel »*, et *« les échanges de méthode entre
-élèves sont autorisés ; le partage d'un dépôt, d'un code ou d'un rapport ne l'est
-pas »*. La branche `main` ne contient donc que du code que j'ai écrit et que je
-peux modifier sous les yeux du formateur.
+## Organisation du travail
 
-> Une branche `s32-cleveland` existe sur ce dépôt : c'est le travail de Walid
-> Hdilou sur la cible S32, que j'ai relu et pour lequel j'ai proposé des
-> correctifs. Elle n'est **pas** fusionnée dans `main` et ne fait pas partie de
-> mon rendu. La relecture croisée relève de l'échange de méthode, autorisé ; la
-> reprise du code ne le serait pas.
+Groupe de travail déclaré : **Joud Atallah, Walid Hdilou, et un troisième
+membre**, sur **deux sites cibles** au total.
+
+| Site | Cible | Ma participation |
+|---|---|---|
+| 1 | **S32** — Cleveland Museum of Art (branche `s32-cleveland`) | audit technique complet, 12 tests de conformité `robots.txt`, correctif de propagation d'URL, retrait de 90 lignes de code mort |
+| 2 | en attente du push de la branche | intégration et vérification dès réception |
+
+> **Point à faire confirmer par le formateur avant l'envoi.** Les documents remis
+> avec le sujet décrivent un **TP individuel** : *« Format : strictement
+> individuel »* (`ENONCE_TP`), *« votre cible vous est attribuée »* au singulier
+> (`MATRICE_CIBLES_ELEVES`), et la déclaration de la trame porte *« ma production
+> individuelle »*. Aucun des cinq fichiers ne mentionne de binôme, de trinôme ni
+> de règle « 3 étudiants = 2 cibles ». L'organisation en groupe décrite ci-dessus
+> repose donc sur une consigne orale : **elle doit être confirmée par écrit avant
+> la remise**, faute de quoi ce dépôt ne correspondrait pas au format attendu.
+
+### Ce que contient la branche `main`
+
+Uniquement du code que j'ai écrit et que je peux modifier sous les yeux du
+formateur : l'ossature du collecteur (configuration, acquisition, normalisation,
+modèle, export, journalisation), ses tests et sa documentation.
+
+La branche `s32-cleveland` — le collecteur S32 de Walid Hdilou — n'est **pas**
+fusionnée dans `main`. Ma contribution sur ce site est une contribution de
+relecture et de correction, tracée dans l'historique Git par mes quatre commits
+sur cette branche, et non une reprise de son code dans mon rendu.
 
 ## Cible et périmètre
 
