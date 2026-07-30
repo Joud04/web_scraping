@@ -1,0 +1,76 @@
+# ---------------------------------------------------------------------------
+# Supports du formateur : diffusion restreinte.
+#
+# ENONCE_TP.html, GRILLES_NOTATION.html, MATRICE_CIBLES_ELEVES.html,
+# NOTICE_TRAME.html et TRAME_COMPTE_RENDU.* portent la mention
+# « Diffusion restreinte -- ce support ne peut etre reproduit, diffuse ou
+# utilise en dehors d'une formation donnee par Semifir, sans autorisation
+# ecrite ». Ce depot doit etre PUBLIC : ces fichiers n'y entrent jamais.
+# ---------------------------------------------------------------------------
+ENONCE_TP.*
+GRILLES_NOTATION.*
+MATRICE_CIBLES_ELEVES.*
+NOTICE_TRAME.*
+TRAME_COMPTE_RENDU.*
+
+# Rapport personnel a envoyer au formateur (contient nom, prenom, groupe).
+*_TP_Scraping.docx
+*_TP_Scraping.pdf
+
+# ---------------------------------------------------------------------------
+# Secrets et configuration locale.
+# config.example.toml est versionne : il documente les cles attendues sans
+# porter de valeur. config.toml, lui, ne l'est jamais.
+# ---------------------------------------------------------------------------
+config.toml
+.env
+.env.local
+*.key
+*.pem
+
+# Etats de session navigateur : un fichier de storage_state Playwright
+# contient les cookies d'authentification. Meme sur un site de demonstration,
+# un etat connecte ne se distribue pas.
+state/
+storage_state.json
+*_state.json
+
+# ---------------------------------------------------------------------------
+# Sorties d'execution.
+# data/ est regenere par chaque collecte ; seul samples/ est versionne, avec
+# 5 a 10 objets, comme demande par l'enonce.
+# ---------------------------------------------------------------------------
+data/
+logs/
+*.log
+
+# Pages enregistrees volumineuses. tests/fixtures/ est versionne (la
+# verification doit tourner sans reseau), mais pas les captures brutes.
+captures/
+
+# Environnements virtuels
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Playwright
+test-results/
+playwright-report/
+
+# Divers
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

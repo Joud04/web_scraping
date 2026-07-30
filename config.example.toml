@@ -1,0 +1,52 @@
+# Configuration d'exemple -- AUCUN SECRET DANS CE FICHIER.
+#
+# Usage :
+#   cp config.example.toml config.toml
+# puis ajuster les valeurs. config.toml est exclu du depot par .gitignore.
+#
+# Toute valeur peut aussi etre passee en ligne de commande, qui gagne sur le
+# fichier, lui-meme gagnant sur les valeurs par defaut du code.
+
+[cible]
+# Identifiant de cible attribue par le formateur (S01, S17, S24, S61...).
+id = "S__"
+nom = ""
+# URL de depart exacte, telle qu'indiquee dans la fiche de cible.
+url_depart = ""
+
+[collecte]
+# Plafond d'objets, jamais un objectif. Doit rester <= au volume de la fiche.
+max_objets = 20
+# Plafond de pages de liste visitees. Garde-fou contre un piege a crawler.
+max_pages = 5
+# Delai minimal entre deux requetes, en secondes.
+# Si le robots.txt de la cible declare un Crawl-delay, cette valeur doit lui
+# etre AU MOINS egale. La valeur retenue et sa source sont justifiees dans le
+# rapport, rubrique 2.1.
+delai_secondes = 1.0
+# Une requete a la fois par defaut. Ne pas augmenter sans raison ecrite.
+concurrence = 1
+# Suivre les pages de detail en plus des pages de liste.
+suivre_detail = true
+
+[http]
+# User-Agent identifiant : on ne se fait pas passer pour un navigateur.
+user_agent = "TP-Scraping-Collecteur/0.1 (formation Semifir; contact@example.org)"
+timeout_secondes = 20.0
+max_tentatives = 3
+# Respecter Retry-After sur 429/503, plafonne a cette valeur.
+backoff_max_secondes = 60.0
+
+[sortie]
+# Export JSONL : une ligne = un objet valide.
+fichier_jsonl = "data/sortie.jsonl"
+# Echantillon versionne de 5 a 10 objets, exige par l'enonce.
+fichier_echantillon = "samples/sample_output.jsonl"
+taille_echantillon = 10
+# Objets rejetes, avec le motif. Sert a remplir la rubrique 7 du rapport.
+fichier_rejets = "data/rejets.jsonl"
+
+[journal]
+# DEBUG, INFO, WARNING, ERROR
+niveau = "INFO"
+fichier = "logs/collecte.log"

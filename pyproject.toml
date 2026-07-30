@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "collecteur"
+version = "0.1.0"
+description = "Collecteur Web explicable - TP individuel Web Scraping"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.28",
+    "beautifulsoup4>=4.13",
+    "lxml>=6.0",
+    "pydantic>=2.11",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.4", "ruff>=0.12"]
+# A n'installer que si le diagnostic conclut a une cible SPA.
+navigateur = ["playwright>=1.54"]
+
+[project.scripts]
+collecteur = "collecteur.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]

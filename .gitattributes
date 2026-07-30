@@ -1,0 +1,24 @@
+# Normalise les fins de ligne : LF dans le depot, natif dans le repertoire de
+# travail. Sans cela, un checkout sous un autre OS produit un diff integral.
+* text=auto
+
+# Fichiers a fin de ligne imposee
+*.sh   text eol=lf
+*.ps1  text eol=crlf
+
+# Sorties de collecte : LF strict, pour que le fichier produit soit identique
+# quelle que soit la machine qui l'a genere.
+*.jsonl text eol=lf
+*.json  text eol=lf
+
+# Pages enregistrees : octet pour octet, jamais retouchees. Une fin de ligne
+# convertie fausserait un test qui compte des caracteres.
+tests/fixtures/*.html -text
+
+# Binaires
+*.png  binary
+*.jpg  binary
+*.svg  binary
+*.ico  binary
+*.docx binary
+*.pdf  binary

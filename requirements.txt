@@ -1,0 +1,22 @@
+# Dependances minimales du collecteur.
+#
+# Regle de l'enonce : « accumuler des outils coute des points ». Chaque ligne
+# de ce fichier doit repondre a un besoin que je sais expliquer a l'oral.
+# Toute dependance dont je ne saurais pas justifier la presence doit etre
+# retiree, pas justifiee apres coup.
+
+httpx==0.28.1            # client HTTP : timeouts explicites, HTTP/2, reprise
+beautifulsoup4==4.13.4   # parsing HTML tolerant aux documents mal formes
+lxml==6.0.0              # backend de parsing rapide pour BeautifulSoup
+pydantic==2.11.7         # modele de donnees, validation et messages d'erreur
+
+# --- Verification (rejouable sans reseau) ---
+pytest==8.4.1
+
+# --- Qualite ---
+ruff==0.12.5
+
+# --- Optionnel : uniquement si le diagnostic conclut a une cible SPA ---
+# A n'installer QUE si la donnee est absente de la reponse HTTP brute.
+# Voir docs/architecture.md, section « decision d'acquisition ».
+# playwright==1.54.0
