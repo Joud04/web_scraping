@@ -1,0 +1,8 @@
+# Pages enregistrees, versionnees pour que la verification tourne sans reseau.
+#
+# A deposer ici apres l'attribution de la cible :
+#   page_liste.html    une page de liste, telle que recue (curl -sS <URL> -o ...)
+#   page_detail.html   une page de detail
+#
+# Ne pas retoucher ces fichiers a la main : un test qui passe sur un HTML
+# nettoye ne prouve rien sur le HTML reel.
