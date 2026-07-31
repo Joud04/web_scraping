@@ -311,6 +311,7 @@ Le détail est dans `docs/fiche_descriptive_s19.md`.
     ├── architecture.md
     ├── fiche_descriptive.md     diagnostic S32, preuves à l'appui
     ├── fiche_descriptive_s19.md diagnostic S19, preuves à l'appui
+    ├── DEMO_ORALE_5MIN.md       script minuté, démo et questions attendues
     ├── AI_USAGE.md
     ├── fiche_descriptive_template.md
     └── CHECKLIST_RENDU.md
