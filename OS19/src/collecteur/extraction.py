@@ -1,6 +1,7 @@
 from typing import Dict, List, Optional
 from bs4 import BeautifulSoup
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -94,72 +95,93 @@ class Extraction:
         return next_link["href"] if next_link else None
 
     def extract_product_details(self, html: str) -> Dict[str, any]:
-        """Extrait les champs complémentaires depuis la page de détail."""
-        import re
+        """Extrait les champs complémentaires depuis la page de détail.
+        
+        Gère différentes structures HTML dynamiques:
+        - <b>Brand:</b> H&M
+        - Brand: H&M (même nœud texte)
+        - <td>Brand:</td><td>H&M</td>
+        """
         soup = BeautifulSoup(html, "lxml")
-
         details = {"brand": None, "category": None}
 
-        # Filter out form and review text
-        form_keywords = {"write", "review", "submit", "thank you", "successfully", "subscribed",
-                        "subscription", "recent", "updates", "copyright", "email", "text"}
-
-        def is_form_text(text):
-            """Check if text is likely from a form rather than actual data."""
-            text_lower = text.lower()
-            return any(kw in text_lower for kw in form_keywords)
-
         def get_value_for_label(label_text):
-            # Find all occurrences of the label
-            elements = soup.find_all(string=lambda t: t and label_text in t)
-            if not elements:
+            """Extrait la valeur qui suit un label, quel que soit le format HTML."""
+            # Trouver tous les éléments contenant le label
+            label_elements = soup.find_all(string=lambda t: t and label_text in t)
+            if not label_elements:
                 return None
 
-            for el in elements:
-                # Skip if this text itself contains form keywords (likely in a form)
-                if is_form_text(el):
+            for label_el in label_elements:
+                # Ignorer les labels dans les titres (sidebar Categories/Brands)
+                if label_text == "Brand:" and label_el.parent and label_el.parent.name in ["h2", "h3"]:
                     continue
 
-                # Try to extract from the immediate text node
-                direct_text = str(el).strip()
-                pattern = re.escape(label_text) + r"\s*:\s*([^:\n]+?)(?:\n|$)"
-                match = re.search(pattern, direct_text)
-                if match:
-                    val = match.group(1).strip()
-                    if val and len(val) < 100 and not is_form_text(val):
-                        return val
-
-                # Look at parent and next sibling
-                parent = el.parent
-                if parent:
-                    # Check if there's text right after the label in the same parent
-                    text_after_label = re.sub(r".*?" + re.escape(label_text) + r"\s*:?\s*", "", direct_text)
-                    if text_after_label and len(text_after_label) < 100 and not is_form_text(text_after_label):
-                        return text_after_label
-
-                    # Look for value in next element sibling
-                    next_elem = parent.find_next_sibling()
-                    if next_elem:
-                        val = next_elem.get_text(strip=True).split("\n")[0].strip()
-                        if val and len(val) < 100 and not is_form_text(val):
+                # Stratégie 1: Le label et la valeur sont dans le même nœud texte
+                # Format: "Brand: H&M"
+                text_node = str(label_el).strip()
+                if label_text in text_node:
+                    pattern = re.escape(label_text) + r"\s*:?\s*(.+?)$"
+                    match = re.search(pattern, text_node)
+                    if match:
+                        val = match.group(1).strip()
+                        if val and len(val) < 100:
                             return val
 
-                    # Check in table structure
+                # Stratégie 2: Le label est dans un élément (ex: <b>Brand:</b>) et la valeur suit
+                # Format: <b>Brand:</b> H&M
+                parent = label_el.parent
+                if parent:
+                    # Chercher le prochain frère du parent (le label est dans un tag comme <b>)
+                    # et la valeur est après ce tag
+                    next_sibling = parent.next_sibling
+                    while next_sibling:
+                        if isinstance(next_sibling, str):
+                            val = str(next_sibling).strip()
+                            if val and len(val) < 100 and val not in [":", ""]:
+                                return val
+                        elif hasattr(next_sibling, 'get_text'):
+                            text = next_sibling.get_text(strip=True)
+                            if text and len(text) < 100:
+                                first_line = text.split("\n")[0].strip()
+                                if first_line:
+                                    return first_line
+                        # S'arrête après le premier élément non-vide
+                        if next_sibling and not (isinstance(next_sibling, str) and next_sibling.strip() == ""):
+                            break
+                        next_sibling = next_sibling.next_sibling
+
+                    # Stratégie 3: Valeur dans le frère suivant du parent
+                    # Format: <td>Brand:</td><td>H&M</td>
+                    parent_next = parent.find_next_sibling()
+                    if parent_next:
+                        val = parent_next.get_text(strip=True)
+                        first_line = val.split("\n")[0].strip() if val else None
+                        if first_line and len(first_line) < 100 and first_line != label_text:
+                            return first_line
+
+                    # Stratégie 4: Structure de tableau
                     td = parent.find_parent("td")
                     if td:
                         next_td = td.find_next_sibling("td")
                         if next_td:
-                            val = next_td.get_text(strip=True).split("\n")[0].strip()
-                            if val and len(val) < 100 and not is_form_text(val):
-                                return val
+                            val = next_td.get_text(strip=True)
+                            first_line = val.split("\n")[0].strip() if val else None
+                            if first_line and len(first_line) < 100:
+                                return first_line
 
             return None
 
         details["category"] = get_value_for_label("Category:")
         details["brand"] = get_value_for_label("Brand:")
 
+        # Nettoie les chaînes vides et décode les entités HTML
         for k, v in details.items():
             if v == "":
                 details[k] = None
+            elif v and isinstance(v, str):
+                # Décoder les entités HTML (ex: H&amp;M -> H&M)
+                from html import unescape
+                details[k] = unescape(v)
 
         return details
