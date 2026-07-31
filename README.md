@@ -21,12 +21,10 @@ de 2 ou 3 sont autorisés, et un groupe de 3 traite 2 sites au total.
 
 ### Répartition et contribution
 
-| Site | Cible | État | Contributions |
-|---|---|---|---|
-| 1 | **S32** — Cleveland Museum of Art | fusionné dans `main` | Walid Hdilou : diagnostic, extraction, modèle `Artwork`, parcours de collecte, fiche descriptive. Joud Atallah : audit technique, 12 tests de conformité `robots.txt` (`Crawl-delay` de 10 s relevé automatiquement, `/api` refusé avant toute requête), correctif de propagation d'URL dans les rejets, retrait de 90 lignes de code mort |
-| 2 | **S19** — Automation Exercise | fusionné dans `main` | Amine Kaoutar : diagnostic de la cible, page de liste enregistrée, périmètre des six champs. Joud Atallah : audit technique, réimplémentation sur le socle commun (ancrages réels, `category` et `brand`, parcours catégories/marques, déduplication), 20 tests hors réseau, correctif du `robots.txt` absent |
-
-Le détail par auteur se lit dans l'historique : `git log --format='%an %s'`.
+| Site | Cible | État |
+|---|---|---|
+| 1 | **S32** — Cleveland Museum of Art | fusionné dans `main` |
+| 2 | **S19** — Automation Exercise | fusionné dans `main` |
 
 ### Organisation du dépôt
 
