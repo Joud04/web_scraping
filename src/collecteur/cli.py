@@ -243,13 +243,19 @@ def _collecte_s19(config: module_config.Config) -> int:
                 if compteurs.exportes >= config.collecte.max_objets:
                     break
 
+                # `vus` compte tout objet RENCONTRE, y compris les redites :
+                # c'est ce qui tient l'invariant du rapport
+                # vus = exportes + rejetes + doublons. L'incrementer apres la
+                # deduplication ferait etat de 34 objets vus pour 68 doublons,
+                # et le tableau de la rubrique 7 ne s'additionnerait plus.
+                compteurs.vus += 1
+
                 # Dedupliquer AVANT la requete de detail, pas apres : c'est ce
                 # qui rend gratuit le fait d'atteindre un produit deux fois.
                 if not deduplicateur.est_nouveau(apercu["item_id"]):
                     compteurs.doublons += 1
                     continue
 
-                compteurs.vus += 1
                 url_produit = apercu["url"]
                 brut = apercu
 
