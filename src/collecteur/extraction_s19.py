@@ -54,6 +54,10 @@ from .extraction import ChampObligatoireAbsent, analyser
 # « Category: Women > Tops » -- on ne garde que ce qui suit le libelle.
 _MOTIF_CATEGORIE = re.compile(r"^\s*category\s*:\s*(.+)$", re.IGNORECASE | re.DOTALL)
 
+# Symboles monetaires susceptibles d'accompagner un prix sur cette cible.
+# Sert au repli textuel de `_prix_affiche` quand les selecteurs ne donnent rien.
+_MOTIF_MONNAIE = re.compile(r"(?:Rs\.?|₹|\$|€|£)\s*\d", re.IGNORECASE)
+
 
 def _texte(noeud: Tag | None) -> str | None:
     """Texte d'un noeud, ou None si le noeud est absent.
@@ -71,8 +75,21 @@ def _valeur_apres_libelle(bloc: Tag, libelle: str) -> str | None:
     La fiche detail range plusieurs champs sous cette meme forme (Availability,
     Condition, Brand). Les distinguer par leur libelle est plus stable que par
     leur rang : le site peut inserer une ligne sans casser la lecture.
+
+    Deux passes, de la plus precise a la plus tolerante :
+
+      1. le libelle porte par un <b>, forme actuelle de la page ;
+      2. a defaut, le libelle cherche dans le TEXTE du bloc, quelle que soit la
+         balise qui le porte.
+
+    La seconde passe vient de l'implementation d'Amine Kaoutar. Elle couvre le
+    cas ou le site cesserait d'emballer ses libelles dans un <b> -- la premiere
+    passe rendrait alors None en silence, et la marque disparaitrait de toutes
+    les lignes sans qu'aucune erreur ne soit levee. C'est exactement le mode de
+    panne qui a coute le plus cher sur cette cible.
     """
     attendu = libelle.rstrip(":").strip().lower()
+
     for gras in bloc.find_all("b"):
         if gras.get_text(strip=True).rstrip(":").strip().lower() == attendu:
             parent = gras.parent
@@ -82,7 +99,52 @@ def _valeur_apres_libelle(bloc: Tag, libelle: str) -> str | None:
             # Retirer le libelle lui-meme, en tete du texte du <p>.
             sans_libelle = valeur[len(gras.get_text(" ", strip=True)) :].strip()
             return sans_libelle or None
+
+    # Repli : le libelle n'est plus dans un <b>. On le cherche dans le texte, et
+    # on s'arrete au libelle SUIVANT.
+    #
+    # L'arret est le point delicat. Les champs se suivent dans le meme bloc
+    # (« Brand: Polo Availability: In Stock Condition: New ») : une capture qui
+    # se contente de courir jusqu'au prochain « : » rend « Polo Availability »,
+    # car elle emporte le mot qui precede ce deux-points. La capture est donc
+    # NON GOURMANDE et bornee par une anticipation sur « <mots> : », ce qui la
+    # coupe avant le libelle suivant plutot qu'apres. Une liste des libelles
+    # connus ferait le meme travail, mais il faudrait la tenir a jour a chaque
+    # champ ajoute par le site.
+    motif = re.compile(
+        re.escape(libelle.rstrip(":")) + r"\s*:\s*(.+?)(?=\s+[A-Za-z][\w ]*\s*:|$)",
+        re.IGNORECASE,
+    )
+    for paragraphe in bloc.find_all(["p", "li", "td", "span", "div"]):
+        trouve = motif.search(paragraphe.get_text(" ", strip=True))
+        if trouve:
+            valeur = trouve.group(1).strip()
+            return valeur or None
     return None
+
+
+def _prix_affiche(bloc: Tag, *args: str) -> str | None:
+    """Lit le prix affiche, en essayant les selecteurs puis un repli textuel.
+
+    Les selecteurs passes en argument sont essayes dans l'ordre. Si aucun ne
+    donne de noeud, on cherche dans le bloc la premiere chaine portant un
+    symbole monetaire connu.
+
+    Ce repli vient de l'implementation d'Amine Kaoutar. Il a une vertu que les
+    selecteurs n'ont pas : le prix reste lisible meme si le site change la
+    balise qui le porte, tant qu'il l'affiche toujours. Sans lui, un <h2>
+    devenu <span> ferait basculer `price` a None sur la totalite des lignes --
+    en silence, puisque le prix n'est pas un champ obligatoire.
+    """
+    for selecteur in args:
+        noeud = bloc.select_one(selecteur)
+        if noeud is not None:
+            texte = _texte(noeud)
+            if texte:
+                return texte
+
+    chaine = bloc.find(string=_MOTIF_MONNAIE.search)
+    return str(chaine).strip() if chaine else None
 
 
 def extraire_liste(html: str, url_base: str) -> list[dict[str, Any]]:
@@ -118,7 +180,7 @@ def extraire_liste(html: str, url_base: str) -> list[dict[str, Any]]:
             {
                 "item_id": str(identifiant),
                 "name": _texte(info.find("p")),
-                "prix_affiche": _texte(info.find("h2")),
+                "prix_affiche": _prix_affiche(info, "h2", ".product-price"),
                 "url": urljoin(url_base, str(href)),
             }
         )
@@ -164,7 +226,7 @@ def extraire_detail(html: str, url_base: str) -> dict[str, Any]:
     return {
         "item_id": str(identifiant),
         "name": nom,
-        "prix_affiche": _texte(bloc.select_one("span span")),
+        "prix_affiche": _prix_affiche(bloc, "span span", ".product-price"),
         "category": categorie,
         "brand": _valeur_apres_libelle(bloc, "Brand"),
         "url": url_base,

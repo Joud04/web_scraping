@@ -158,6 +158,74 @@ def test_cle_dedup_est_l_identifiant_du_site(html_detail: str) -> None:
     assert produit.cle_dedup == "1"
 
 
+class TestReplisDeResilience:
+    """Replis issus de l'implementation d'Amine Kaoutar.
+
+    Les selecteurs decrivent la page d'aujourd'hui. Ces replis couvrent le cas
+    ou le site changerait la balise sans changer ce qu'il affiche -- mode de
+    panne particulierement couteux ici, parce que ni le prix ni la marque ne
+    sont des champs obligatoires : leur disparition ne leve aucune erreur et se
+    lirait seulement dans les donnees, une fois la collecte terminee.
+    """
+
+    def test_prix_lu_meme_si_la_balise_change(self) -> None:
+        """Le <h2> devenu <span> : le prix reste lisible."""
+        html = (
+            '<div class="product-image-wrapper"><div class="productinfo">'
+            '<span class="tarif">Rs. 750</span><p>Chemise</p>'
+            '<a href="/product_details/42" data-product-id="42">Voir</a>'
+            "</div></div>"
+        )
+        produit = extraction_s19.extraire_liste(html, URL_LISTE)[0]
+        assert produit["prix_affiche"] == "Rs. 750"
+        assert Product.depuis_brut(produit, URL_LISTE).price == Decimal("750")
+
+    def test_selecteur_prioritaire_sur_le_repli(self, html_liste: str) -> None:
+        """Le repli ne doit pas prendre la main quand le selecteur repond.
+
+        Sans cette garantie, le repli pourrait capter un prix barre ou un prix
+        promotionnel voisin au lieu du prix affiche.
+        """
+        produits = extraction_s19.extraire_liste(html_liste, URL_LISTE)
+        assert produits[0]["prix_affiche"] == "Rs. 500"
+        assert sum(1 for p in produits if p["prix_affiche"]) == 34
+
+    def test_marque_lue_meme_sans_balise_gras(self) -> None:
+        """« Brand: » hors d'un <b> : la marque reste lisible."""
+        html = (
+            '<div class="product-information"><h2>Chemise</h2>'
+            "<p>Category: Men > Tshirts</p>"
+            "<p>Brand: Allen Solly</p>"
+            '<input id="product_id" value="42">'
+            "</div>"
+        )
+        detail = extraction_s19.extraire_detail(html, URL_DETAIL)
+        assert detail["brand"] == "Allen Solly"
+        assert detail["category"] == "Men > Tshirts"
+
+    def test_le_repli_ne_deborde_pas_sur_le_libelle_suivant(self) -> None:
+        """« Brand: Polo » ne doit pas avaler « Availability: In Stock ».
+
+        Les champs se suivent dans le meme bloc ; un repli trop gourmand
+        produirait une marque « Polo Availability » qui casserait la
+        deduplication et les regroupements par marque.
+        """
+        html = (
+            '<div class="product-information"><h2>Chemise</h2>'
+            "<p>Brand: Polo Availability: In Stock Condition: New</p>"
+            '<input id="product_id" value="42">'
+            "</div>"
+        )
+        detail = extraction_s19.extraire_detail(html, URL_DETAIL)
+        assert detail["brand"] == "Polo"
+
+    def test_la_page_reelle_passe_toujours_par_le_chemin_precis(self, html_detail: str) -> None:
+        """Sur la page d'aujourd'hui, c'est bien le <b> qui repond, pas le repli."""
+        detail = extraction_s19.extraire_detail(html_detail, URL_DETAIL)
+        assert detail["brand"] == "Polo"
+        assert detail["category"] == "Women > Tops"
+
+
 def test_liste_et_detail_donnent_le_meme_identifiant(html_liste: str, html_detail: str) -> None:
     premier = extraction_s19.extraire_liste(html_liste, URL_LISTE)[0]
     detail = extraction_s19.extraire_detail(html_detail, URL_DETAIL)
