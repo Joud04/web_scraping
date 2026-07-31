@@ -17,6 +17,15 @@ TRAME_COMPTE_RENDU.*
 *_TP_Scraping.docx
 *_TP_Scraping.pdf
 
+# Fiches de preparation de la soutenance : notes personnelles, script de
+# passage et reponses preparees. Elles restent sur le poste de l'auteur.
+#
+# Le motif vise les fichiers, PAS le dossier docs/ : celui-ci porte des
+# livrables exiges par l'enonce (architecture.md, les deux fiches
+# descriptives, AI_USAGE.md) qui doivent rester versionnes.
+DEMO_ORALE_*.md
+docs/DEMO_ORALE_*.md
+
 # ---------------------------------------------------------------------------
 # Secrets et configuration locale.
 # config.example.toml est versionne : il documente les cles attendues sans
