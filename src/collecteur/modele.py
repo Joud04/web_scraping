@@ -5,9 +5,14 @@ cible : un identifiant stable, l'URL source, et la date de collecte avec son
 fuseau. L'objet metier concret (Product, Destination, Artwork, Book...) herite
 de ce socle et ajoute les champs minimaux de la fiche de cible.
 
-    ATTENDRE L'ATTRIBUTION DE LA CIBLE avant d'ecrire la classe concrete :
-    les champs minimaux different d'une cible a l'autre, et un schema devine
-    a l'avance est un schema qu'on justifie mal a l'oral.
+Deux classes concretes cohabitent, une par cible du groupe :
+
+    Artwork   oeuvre du Cleveland Museum of Art        (site 1, S32)
+    Product   produit d'Automation Exercise            (site 2, S19)
+
+Elles ne partagent aucun champ metier -- les fiches de cible n'en exigent pas
+les memes -- mais elles partagent l'identifiant, l'URL source et l'horodatage,
+qui sont les trois colonnes que l'enonce impose quelle que soit la cible.
 
 Convention de valeur absente, tenue dans tout le projet :
 
@@ -22,6 +27,7 @@ Les trois sont distincts, et le rapport le demande explicitement. Un
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
@@ -132,6 +138,74 @@ class Artwork(ObjetCollecte):
             artist=normalisation.normaliser_texte(brut.get("artist")),
             date_text=normalisation.normaliser_texte(brut.get("date_text")),
             medium=normalisation.normaliser_texte(brut.get("medium")),
+            url=url,
+        )
+
+
+class Product(ObjetCollecte):
+    """Un produit du catalogue Automation Exercise (cible S19).
+
+    Les six champs minimaux de la fiche de cible sont `name`, `price`,
+    `currency`, `category`, `brand`, `url`. Seul `name` est obligatoire : un
+    produit sans nom n'existe pas, alors qu'un produit dont le prix n'est pas
+    affiche reste un produit. La convention absent / vide / zero de
+    `ObjetCollecte` porte ici tout son sens, et plus encore que sur S32 :
+    `price = None` signale un prix non affiche, `price = 0` un article gratuit.
+    Les confondre fausserait toute moyenne calculee ensuite.
+
+    `price` est un `Decimal` et non un `float` : 0.1 + 0.2 != 0.3 en binaire, et
+    un montant qui derive au centieme est un defaut de donnee.
+    """
+
+    name: str = Field(..., min_length=1, description="Nom du produit, tel qu'affiche.")
+    price: Decimal | None = Field(
+        None, description="Montant en Decimal. None si la page n'affiche pas de prix."
+    )
+    currency: str | None = Field(
+        None, description="Code ISO 4217 deduit du symbole affiche, ex. « Rs. » -> INR."
+    )
+    category: str | None = Field(None, description="Categorie, ex. « Women > Tops ».")
+    brand: str | None = Field(None, description="Marque, ex. « Polo ».")
+    url: HttpUrl = Field(..., description="URL de la fiche du produit.")
+
+    @property
+    def cle_dedup(self) -> str:
+        """L'identifiant numerique du produit, porte par la page elle-meme.
+
+        Il vient de `data-product-id` sur la liste et de `input#product_id` sur
+        la fiche : c'est la meme valeur des deux cotes, ce qui permet de
+        reconnaitre un produit deja collecte AVANT de redemander sa fiche. Un
+        produit atteint par deux chemins -- sa categorie et sa marque -- n'est
+        ainsi telecharge qu'une fois.
+        """
+        return self.item_id
+
+    @classmethod
+    def depuis_brut(cls, brut: dict[str, Any], source_url: str) -> Product:
+        """Construit un produit valide a partir du dictionnaire brut d'extraction.
+
+        L'extraction ne rend que des chaines telles que la page les porte ; la
+        conversion du prix et la deduction de la devise se font ici, au seul
+        endroit qui assemble l'objet metier. Prix et devise se lisent dans la
+        MEME chaine (« Rs. 500 ») : les separer plus tot obligerait l'extraction
+        a interpreter, ce que son contrat lui interdit.
+        """
+        nom = normalisation.normaliser_texte(brut.get("name"))
+        if nom is None:
+            raise ChampObligatoireAbsent("name", source_url)
+        url = normalisation.normaliser_url(brut.get("url"), source_url)
+        if url is None:
+            raise ChampObligatoireAbsent("url", source_url)
+
+        prix_affiche = brut.get("prix_affiche")
+        return cls(
+            item_id=brut["item_id"],
+            source_url=source_url,
+            name=nom,
+            price=normalisation.normaliser_prix(prix_affiche),
+            currency=normalisation.detecter_devise(prix_affiche),
+            category=normalisation.normaliser_texte(brut.get("category")),
+            brand=normalisation.normaliser_texte(brut.get("brand")),
             url=url,
         )
 

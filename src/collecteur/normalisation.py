@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from decimal import Decimal, InvalidOperation
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
 # Blancs Unicode que `str.strip` ignore et que les sites emploient couramment.
@@ -30,6 +31,52 @@ _BLANCS = (
     + "\u200a"  # HAIR SPACE
     + "\ufeff"  # ZERO WIDTH NO-BREAK SPACE (BOM rencontre en milieu de flux)
 )
+
+# Separateurs de milliers typographiques. Un prix affiche \u00ab 1 299 \u00bb porte
+# souvent une espace insecable, pas une espace ordinaire.
+_SEPARATEURS_MILLIERS = " " + ESPACE_INSECABLE + ESPACE_INSEC_FINE
+
+# Deux formes, dans cet ordre : nombre a separateurs de milliers, puis nombre
+# simple. La premiere exige AU MOINS un groupe de trois chiffres (`+`, pas `*`)
+# et refuse d'etre suivie d'un chiffre.
+#
+# Sans ces deux precautions, « 1500 » entrait dans la premiere forme : `\d{1,3}`
+# y capturait « 150 », le groupe de milliers ne trouvait rien a repeter, et le
+# motif rendait 150. Tout prix de quatre chiffres ou plus ecrit sans separateur
+# perdait ainsi ses derniers chiffres, en silence. Le defaut est reste invisible
+# tant que le projet ne traitait que des oeuvres d'art, qui n'ont pas de prix.
+_MOTIF_NOMBRE = re.compile(
+    r"[-+]?\d{1,3}(?:[" + _SEPARATEURS_MILLIERS + r".,]\d{3})+(?:[.,]\d+)?(?!\d)"
+    r"|[-+]?\d+(?:[.,]\d+)?"
+)
+
+# Symboles et codes monetaires les plus courants sur les cibles du TP.
+# \u00ab Rs. \u00bb est celui de la cible S19 (Automation Exercise), qui affiche ses
+# prix en roupies indiennes sans jamais ecrire le code ISO.
+_DEVISES = {
+    "\u20ac": "EUR",
+    "eur": "EUR",
+    "$": "USD",
+    "us$": "USD",
+    "usd": "USD",
+    "\u00a3": "GBP",
+    "gbp": "GBP",
+    "\u20b9": "INR",
+    "rs": "INR",
+    "rs.": "INR",
+    "inr": "INR",
+    "\u00a5": "JPY",
+    "jpy": "JPY",
+    "zar": "ZAR",
+    "s$": "SGD",
+    "sgd": "SGD",
+    "nz$": "NZD",
+    "nzd": "NZD",
+    "c$": "CAD",
+    "cad": "CAD",
+    "a$": "AUD",
+    "aud": "AUD",
+}
 
 
 def normaliser_texte(brut: str | None, *, vide_en_none: bool = True) -> str | None:
@@ -54,6 +101,78 @@ def normaliser_texte(brut: str | None, *, vide_en_none: bool = True) -> str | No
     if not texte and vide_en_none:
         return None
     return texte
+
+
+def normaliser_prix(brut: str | None) -> Decimal | None:
+    """Extrait un montant d'une chaine affichee, en `Decimal`.
+
+    `Decimal` et non `float` : 0.1 + 0.2 != 0.3 en binaire, et un prix qui
+    derive au centieme dans un fichier de sortie est un defaut de donnee.
+
+    Le point delicat est le separateur. « 1,299 » vaut 1299 en anglais et 1.299
+    en francais. La regle retenue, documentee et donc defendable :
+
+      - un separateur suivi d'exactement trois chiffres, et seul de son espece
+        dans le nombre, est un separateur de milliers ;
+      - sinon, le dernier separateur rencontre est la decimale.
+
+    Elle echoue sur « 1,250 » signifiant 1,25 EUR ecrit avec trois decimales :
+    ce cas est rare sur les cibles du TP, et l'echec est silencieux. C'est une
+    limite a citer en rubrique 9 plutot qu'a passer sous silence.
+    """
+    if brut is None:
+        return None
+    texte = normaliser_texte(brut)
+    if texte is None:
+        return None
+    correspondance = _MOTIF_NOMBRE.search(texte)
+    if correspondance is None:
+        return None
+
+    nombre = correspondance.group(0)
+    for blanc in _SEPARATEURS_MILLIERS:
+        nombre = nombre.replace(blanc, "")
+
+    dernier_point, derniere_virgule = nombre.rfind("."), nombre.rfind(",")
+    decimale = max(dernier_point, derniere_virgule)
+    if decimale == -1:
+        propre = nombre
+    else:
+        chiffres_apres = len(nombre) - decimale - 1
+        if chiffres_apres == 3 and (dernier_point == -1 or derniere_virgule == -1):
+            # Un seul type de separateur, suivi de trois chiffres : milliers.
+            propre = nombre.replace(".", "").replace(",", "")
+        else:
+            entier = nombre[:decimale].replace(".", "").replace(",", "")
+            propre = f"{entier}.{nombre[decimale + 1 :]}"
+
+    try:
+        return Decimal(propre)
+    except InvalidOperation:
+        return None
+
+
+def detecter_devise(brut: str | None, *, defaut: str | None = None) -> str | None:
+    """Deduit un code ISO 4217 du symbole affiche a cote du prix.
+
+    Les symboles sont essayes du plus long au plus court, sans quoi « rs »
+    l'emporterait sur « rs. » et « $ » sur « us$ ». Les symboles d'une seule
+    lettre sont volontairement absents de la table : « r » se rencontre dans
+    presque tout texte, et le faire correspondre a ZAR etiquetterait en rand
+    n'importe quel prix accompagne d'un mot.
+
+    Renvoie `defaut` si aucun symbole n'est reconnu. Sur une cible qui n'affiche
+    jamais sa devise, le rapport doit dire d'ou vient la valeur retenue : une
+    devise codee en dur qui ne vient pas de la page est une hypothese, et elle
+    se declare.
+    """
+    if brut is None:
+        return defaut
+    texte = (normaliser_texte(brut) or "").lower()
+    for symbole, code in sorted(_DEVISES.items(), key=lambda paire: -len(paire[0])):
+        if symbole in texte:
+            return code
+    return defaut
 
 
 def normaliser_url(brut: str | None, base: str) -> str | None:

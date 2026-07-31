@@ -21,13 +21,13 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from . import __version__, extraction
+from . import __version__, extraction, extraction_s19
 from . import config as module_config
 from .acquisition import ClientHTTP, CollecteRefusee, ReessayerPlusTard
 from .export import EcrivainJSONL, ecrire_echantillon_json
 from .extraction import ChampObligatoireAbsent
 from .journal import LOGGER, Compteurs, configurer
-from .modele import Artwork, Rejet
+from .modele import Artwork, Product, Rejet
 from .normalisation import Deduplicateur
 
 # Marqueurs d'un rendu cote client dans une reponse HTTP brute.
@@ -115,6 +115,19 @@ def _urls_graines(config: module_config.Config) -> list[str]:
 
 
 def _collecte(config: module_config.Config) -> int:
+    """Aiguille vers le parcours de la cible configuree.
+
+    Les deux sites du groupe n'ont pas la meme topologie -- S32 n'a pas de page
+    de liste utilisable et se parcourt de proche en proche, S19 en a et se
+    parcourt par categories et par marques -- mais ils partagent tout le reste :
+    client HTTP, delai, deduplication, validation, export, compteurs.
+    """
+    if config.cible.id.upper().lstrip("O") == "S19":
+        return _collecte_s19(config)
+    return _collecte_s32(config)
+
+
+def _collecte_s32(config: module_config.Config) -> int:
     compteurs = Compteurs()
     deduplicateur = Deduplicateur()
     with (
@@ -176,6 +189,113 @@ def _collecte(config: module_config.Config) -> int:
                 if lien not in deja_vu:
                     deja_vu.add(lien)
                     a_visiter.append(lien)
+
+    print("\n=== Rubrique 7 -- resultats ===")
+    print(compteurs.resume())
+    return 0
+
+
+def _collecte_s19(config: module_config.Config) -> int:
+    """Parcours de la cible S19 : pages de liste, puis fiche detail par produit.
+
+    Deux etages, imposes par la cible et non par gout :
+
+      - la page de liste donne le nom, le prix et l'URL, mais NI la categorie NI
+        la marque, qui sont deux des six champs minimaux exiges. Il faut donc
+        ouvrir la fiche de chaque produit ;
+      - les 34 produits de /products ne sont pas tout le catalogue. Le site le
+        repartit en 7 categories et 8 marques, chacune sur sa page de liste.
+        Les parcourir est la forme que prend la pagination sur cette cible.
+
+    La deduplication se fait sur l'identifiant du produit AVANT de demander sa
+    fiche : un produit atteint a la fois par sa categorie et par sa marque ne
+    doit couter qu'une requete, pas deux.
+    """
+    compteurs = Compteurs()
+    deduplicateur = Deduplicateur()
+    with (
+        ClientHTTP(config) as client,
+        EcrivainJSONL(config.sortie.fichier_jsonl) as sortie,
+        EcrivainJSONL(config.sortie.fichier_rejets) as rejets,
+    ):
+        listes: deque[str] = deque([config.cible.url_depart])
+        listes_vues: set[str] = set(listes)
+
+        while listes and compteurs.exportes < config.collecte.max_objets:
+            if compteurs.pages >= config.collecte.max_pages:
+                LOGGER.warning(
+                    "Plafond de %d pages de liste atteint : arret du parcours.",
+                    config.collecte.max_pages,
+                )
+                break
+            url_liste = listes.popleft()
+
+            try:
+                reponse_liste = client.get(url_liste)
+            except ReessayerPlusTard as erreur:
+                LOGGER.warning("Page de liste ignoree (%s) : %s", url_liste, erreur)
+                compteurs.erreurs_reseau += 1
+                continue
+            compteurs.pages += 1
+            compteurs.requetes += 1
+
+            for apercu in extraction_s19.extraire_liste(reponse_liste.texte, reponse_liste.url):
+                if compteurs.exportes >= config.collecte.max_objets:
+                    break
+
+                # Dedupliquer AVANT la requete de detail, pas apres : c'est ce
+                # qui rend gratuit le fait d'atteindre un produit deux fois.
+                if not deduplicateur.est_nouveau(apercu["item_id"]):
+                    compteurs.doublons += 1
+                    continue
+
+                compteurs.vus += 1
+                url_produit = apercu["url"]
+                brut = apercu
+
+                if config.collecte.suivre_detail:
+                    try:
+                        reponse_detail = client.get(url_produit)
+                    except ReessayerPlusTard as erreur:
+                        LOGGER.warning("Fiche ignoree (%s) : %s", url_produit, erreur)
+                        compteurs.erreurs_reseau += 1
+                        continue
+                    compteurs.requetes += 1
+                    try:
+                        brut = extraction_s19.extraire_detail(
+                            reponse_detail.texte, reponse_detail.url
+                        )
+                    except ChampObligatoireAbsent as erreur:
+                        rejets.ecrire(
+                            Rejet(source_url=url_produit, motif=str(erreur), champ=erreur.champ)
+                        )
+                        compteurs.rejeter("champ obligatoire absent", erreur.champ)
+                        continue
+                    url_produit = reponse_detail.url
+
+                try:
+                    produit = Product.depuis_brut(brut, url_produit)
+                except ChampObligatoireAbsent as erreur:
+                    rejets.ecrire(
+                        Rejet(source_url=url_produit, motif=str(erreur), champ=erreur.champ)
+                    )
+                    compteurs.rejeter("champ obligatoire absent", erreur.champ)
+                    continue
+                except ValidationError as erreur:
+                    rejets.ecrire(Rejet(source_url=url_produit, motif=str(erreur)))
+                    compteurs.rejeter("validation du modele")
+                    continue
+
+                sortie.ecrire(produit)
+                compteurs.exportes += 1
+
+            # Etendre le front avec les pages de categorie et de marque.
+            for lien in extraction_s19.extraire_liens_listes(
+                reponse_liste.texte, reponse_liste.url
+            ):
+                if lien not in listes_vues:
+                    listes_vues.add(lien)
+                    listes.append(lien)
 
     print("\n=== Rubrique 7 -- resultats ===")
     print(compteurs.resume())
