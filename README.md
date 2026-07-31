@@ -23,7 +23,7 @@ de 2 ou 3 sont autorisés, et un groupe de 3 traite 2 sites au total.
 
 | Membre | Rôle | Contributions |
 |---|---|---|
-| **Joud Atallah** | Architecture & QA | Conception de l'**architecture unifiée** (`src/collecteur/`) : six responsabilités, un socle commun aux deux cibles, un module d'extraction par site. **Audit et refactoring** des deux cibles S32 et S19. **Suite de tests** — 105 tests, aucun ne touche le réseau. **Conformité `robots.txt`** : `Crawl-delay` relevé et jamais abaissé sur S32, absence de fichier correctement traitée sur S19. **Intégration** des deux branches dans `main`, export JSONL incrémental, `ruff` au vert. |
+| **Joud Atallah** | Architecture & QA | Conception de l'**architecture unifiée** (`src/collecteur/`) : six responsabilités, un socle commun aux deux cibles, un module d'extraction par site. **Audit et refactoring** des deux cibles S32 et S19. **Suite de tests** — 110 tests, aucun ne touche le réseau. **Conformité `robots.txt`** : `Crawl-delay` relevé et jamais abaissé sur S32, absence de fichier correctement traitée sur S19. **Intégration** des deux branches dans `main`, export JSONL incrémental, `ruff` au vert. |
 | **Walid Hdilou** | Site 1 — S32 | Implémentation initiale du collecteur **Cleveland Museum of Art** : diagnostic de la cible, ancrage sur `__NEXT_DATA__`, modèle `Artwork`, parcours de proche en proche via `artworksForSeeAlso`, fiche descriptive. |
 | **Amine Kaoutar** | Site 2 — S19 | Implémentation initiale du collecteur **Automation Exercise** : diagnostic de la cible, page de liste enregistrée en fixture, périmètre des six champs minimaux, ancrages `.product-image-wrapper` / `.productinfo`, et les **replis de résilience** repris dans le pipeline (lecture du prix et de la marque même si le site change de balise). |
 
@@ -296,7 +296,7 @@ Le détail est dans `docs/fiche_descriptive_s19.md`.
 ├── src/collecteur/              six responsabilités, un module chacune
 │   ├── extraction.py            site 1 — seul module qui connaît S32
 │   └── extraction_s19.py        site 2 — seul module qui connaît S19
-├── tests/                       105 tests, aucun ne touche le réseau
+├── tests/                       110 tests, aucun ne touche le réseau
 │   ├── fixtures/
 │   │   ├── page_detail.html     S32 — fiche 1915.534 enregistrée telle quelle (116 Ko)
 │   │   ├── robots.txt           S32 — robots.txt réel de la cible, enregistré
