@@ -1,0 +1,112 @@
+[
+  {
+    "brand": "Polo",
+    "category": "Women > Tops",
+    "currency": "INR",
+    "item_id": "1",
+    "name": "Blue Top",
+    "price": "500",
+    "scraped_at": "2026-07-31T08:58:20.304496Z",
+    "source_url": "https://automationexercise.com/product_details/1",
+    "url": "https://automationexercise.com/product_details/1"
+  },
+  {
+    "brand": "H&M",
+    "category": "Men > Tshirts",
+    "currency": "INR",
+    "item_id": "2",
+    "name": "Men Tshirt",
+    "price": "400",
+    "scraped_at": "2026-07-31T08:58:21.302857Z",
+    "source_url": "https://automationexercise.com/product_details/2",
+    "url": "https://automationexercise.com/product_details/2"
+  },
+  {
+    "brand": "Madame",
+    "category": "Women > Dress",
+    "currency": "INR",
+    "item_id": "3",
+    "name": "Sleeveless Dress",
+    "price": "1000",
+    "scraped_at": "2026-07-31T08:58:22.326588Z",
+    "source_url": "https://automationexercise.com/product_details/3",
+    "url": "https://automationexercise.com/product_details/3"
+  },
+  {
+    "brand": "Madame",
+    "category": "Women > Dress",
+    "currency": "INR",
+    "item_id": "4",
+    "name": "Stylish Dress",
+    "price": "1500",
+    "scraped_at": "2026-07-31T08:58:23.214703Z",
+    "source_url": "https://automationexercise.com/product_details/4",
+    "url": "https://automationexercise.com/product_details/4"
+  },
+  {
+    "brand": "Mast & Harbour",
+    "category": "Women > Tops",
+    "currency": "INR",
+    "item_id": "5",
+    "name": "Winter Top",
+    "price": "600",
+    "scraped_at": "2026-07-31T08:58:24.211127Z",
+    "source_url": "https://automationexercise.com/product_details/5",
+    "url": "https://automationexercise.com/product_details/5"
+  },
+  {
+    "brand": "H&M",
+    "category": "Women > Tops",
+    "currency": "INR",
+    "item_id": "6",
+    "name": "Summer White Top",
+    "price": "400",
+    "scraped_at": "2026-07-31T08:58:25.209031Z",
+    "source_url": "https://automationexercise.com/product_details/6",
+    "url": "https://automationexercise.com/product_details/6"
+  },
+  {
+    "brand": "Madame",
+    "category": "Women > Tops",
+    "currency": "INR",
+    "item_id": "7",
+    "name": "Madame Top For Women",
+    "price": "1000",
+    "scraped_at": "2026-07-31T08:58:26.208168Z",
+    "source_url": "https://automationexercise.com/product_details/7",
+    "url": "https://automationexercise.com/product_details/7"
+  },
+  {
+    "brand": "Polo",
+    "category": "Women > Tops",
+    "currency": "INR",
+    "item_id": "8",
+    "name": "Fancy Green Top",
+    "price": "700",
+    "scraped_at": "2026-07-31T08:58:27.308149Z",
+    "source_url": "https://automationexercise.com/product_details/8",
+    "url": "https://automationexercise.com/product_details/8"
+  },
+  {
+    "brand": "Babyhug",
+    "category": "Kids > Tops & Shirts",
+    "currency": "INR",
+    "item_id": "11",
+    "name": "Sleeves Printed Top - White",
+    "price": "499",
+    "scraped_at": "2026-07-31T08:58:28.222838Z",
+    "source_url": "https://automationexercise.com/product_details/11",
+    "url": "https://automationexercise.com/product_details/11"
+  },
+  {
+    "brand": "Babyhug",
+    "category": "Kids > Tops & Shirts",
+    "currency": "INR",
+    "item_id": "12",
+    "name": "Half Sleeves Top Schiffli Detailing - Pink",
+    "price": "359",
+    "scraped_at": "2026-07-31T08:58:29.518203Z",
+    "source_url": "https://automationexercise.com/product_details/12",
+    "url": "https://automationexercise.com/product_details/12"
+  }
+]

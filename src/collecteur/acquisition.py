@@ -85,6 +85,26 @@ class Robots:
             self._parser.parse([])
             return self
 
+        # Un site sans robots.txt peut rediriger /robots.txt vers une page
+        # ordinaire plutot que repondre 404 : c'est le cas de la cible S19, dont
+        # /robots.txt renvoie 302 vers l'accueil. La reponse est alors un
+        # document HTML de plusieurs dizaines de milliers d'octets, et la
+        # traiter comme un robots.txt aurait deux consequences : le diagnostic
+        # afficherait du HTML en guise de regles, et une ligne « Disallow: »
+        # apparaissant par hasard dans la page serait appliquee comme une regle
+        # reelle. Un robots.txt est un document text/plain ; tout le reste est
+        # traite comme une absence de fichier, donc comme une absence de regle.
+        type_contenu = reponse.headers.get("content-type", "").split(";")[0].strip().lower()
+        if type_contenu and not type_contenu.startswith("text/plain"):
+            LOGGER.info(
+                "robots.txt absent sur %s : la reponse est de type %s (redirection vers une "
+                "page). Aucun chemin interdit, aucun Crawl-delay declare.",
+                self.url,
+                type_contenu,
+            )
+            self._parser.parse([])
+            return self
+
         self.contenu = reponse.text
         self._parser.parse(self.contenu.splitlines())
         delai = self._parser.crawl_delay(self.user_agent)

@@ -1,0 +1,56 @@
+# Configuration d'exemple pour le SITE 2 -- AUCUN SECRET DANS CE FICHIER.
+#
+# Usage :
+#   cp config.s19.example.toml config.s19.toml
+#   python -m collecteur collecte --config config.s19.toml
+#
+# Le site 1 (S32, Cleveland Museum of Art) a sa propre configuration dans
+# config.example.toml. Les deux cibles partagent le meme collecteur : seul
+# l'identifiant ci-dessous decide du parcours applique.
+
+[cible]
+id = "S19"
+nom = "Automation Exercise"
+url_depart = "https://automationexercise.com/products"
+
+[collecte]
+# Plafond d'objets, jamais un objectif. La fiche de cible plafonne a 60.
+max_objets = 60
+# Plafond de pages de liste. La cible en compte 16 : /products, 7 categories
+# et 8 marques. Le plafond laisse une marge sans permettre une derive.
+max_pages = 20
+# Delai minimal entre deux requetes, en secondes.
+#
+# La cible ne publie AUCUN robots.txt : /robots.txt repond 302 vers la page
+# d'accueil. Aucun Crawl-delay n'est donc declare, et le collecteur n'a rien a
+# relever. L'absence de regle n'est pas une autorisation d'aller vite : ce
+# delai est entierement a notre charge, et il est volontairement conserve a
+# une seconde alors que rien ne l'impose.
+delai_secondes = 1.0
+# Une requete a la fois. Ne pas augmenter sans raison ecrite.
+concurrence = 1
+# Indispensable ici : la page de liste ne porte ni la categorie ni la marque,
+# qui sont deux des six champs minimaux. Les mettre a false produirait des
+# objets incomplets.
+suivre_detail = true
+# Sans objet sur cette cible : le parcours part de la page de liste declaree
+# ci-dessus, pas de graines. La cle reste presente pour que les deux
+# configurations aient la meme forme.
+graines = []
+
+[http]
+# User-Agent identifiant : on ne se fait pas passer pour un navigateur.
+user_agent = "TP-Scraping-Collecteur/0.1 (formation Semifir; contact@example.org)"
+timeout_secondes = 20.0
+max_tentatives = 3
+backoff_max_secondes = 60.0
+
+[sortie]
+fichier_jsonl = "data/sortie_s19.jsonl"
+fichier_echantillon = "samples/sample_output_s19.jsonl"
+taille_echantillon = 10
+fichier_rejets = "data/rejets_s19.jsonl"
+
+[journal]
+niveau = "INFO"
+fichier = "logs/collecte_s19.log"

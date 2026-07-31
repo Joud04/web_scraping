@@ -23,10 +23,14 @@ TRAME_COMPTE_RENDU.*
 # porter de valeur. config.toml, lui, ne l'est jamais.
 # ---------------------------------------------------------------------------
 config.toml
+config.s19.toml
 .env
 .env.local
 *.key
 *.pem
+
+# Fichiers temporaires deposes par les outils dans .claude/.
+.claude/*.tmp.*
 
 # Etats de session navigateur : un fichier de storage_state Playwright
 # contient les cookies d'authentification. Meme sur un site de demonstration,

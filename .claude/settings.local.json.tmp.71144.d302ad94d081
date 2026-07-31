@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(curl -L \"https://automationexercise.com/products\" -o tests/fixtures/page_liste.html)",
-      "Bash(git checkout *)",
-      "Bash(git add *)"
-    ]
-  }
-}

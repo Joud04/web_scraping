@@ -6,8 +6,8 @@ la normalisation dit comment interpreter. C'est aussi ce qui les rend testables
 sans reseau, exigence de la rubrique 6 de l'enonce.
 
 Chaque fonction retourne `None` quand l'entree ne permet aucune conclusion.
-Elle ne devine jamais. Un prix illisible devient `None` et l'objet part en rejet
-avec son motif ; il ne devient pas 0.
+Elle ne devine jamais : une valeur illisible devient `None` et l'objet part en
+rejet avec son motif, plutot que d'etre comble par une valeur par defaut.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from urllib.parse import urljoin, urlsplit, urlunsplit
 # Blancs Unicode que `str.strip` ignore et que les sites emploient couramment.
 # Ecrits en echappements plutot qu'en caracteres litteraux : a l'oeil, ils sont
 # indiscernables d'une espace ordinaire dans un editeur, et un relecteur de bonne
-# foi les "corrigerait" en cassant silencieusement le parsing des prix.
+# foi les "corrigerait" en cassant silencieusement la comparaison des textes.
 ESPACE_INSECABLE = "\u00a0"  # NO-BREAK SPACE        -- "1 299" sur les sites francais
 ESPACE_INSEC_FINE = "\u202f"  # NARROW NO-BREAK SPACE -- meme role, variante typographique
 _BLANCS = (
@@ -32,31 +32,41 @@ _BLANCS = (
     + "\ufeff"  # ZERO WIDTH NO-BREAK SPACE (BOM rencontre en milieu de flux)
 )
 
-# Separateurs de milliers acceptes, en plus du point et de la virgule.
+# Separateurs de milliers typographiques. Un prix affiche \u00ab 1 299 \u00bb porte
+# souvent une espace insecable, pas une espace ordinaire.
 _SEPARATEURS_MILLIERS = " " + ESPACE_INSECABLE + ESPACE_INSEC_FINE
 
-# Un nombre, avec separateurs de milliers et decimale au point ou a la virgule.
+# Deux formes, dans cet ordre : nombre a separateurs de milliers, puis nombre
+# simple. La premiere exige AU MOINS un groupe de trois chiffres (`+`, pas `*`)
+# et refuse d'etre suivie d'un chiffre.
+#
+# Sans ces deux precautions, « 1500 » entrait dans la premiere forme : `\d{1,3}`
+# y capturait « 150 », le groupe de milliers ne trouvait rien a repeter, et le
+# motif rendait 150. Tout prix de quatre chiffres ou plus ecrit sans separateur
+# perdait ainsi ses derniers chiffres, en silence. Le defaut est reste invisible
+# tant que le projet ne traitait que des oeuvres d'art, qui n'ont pas de prix.
 _MOTIF_NOMBRE = re.compile(
-    r"[-+]?\d{1,3}(?:[" + _SEPARATEURS_MILLIERS + r".,]\d{3})*(?:[.,]\d+)?"
+    r"[-+]?\d{1,3}(?:[" + _SEPARATEURS_MILLIERS + r".,]\d{3})+(?:[.,]\d+)?(?!\d)"
     r"|[-+]?\d+(?:[.,]\d+)?"
 )
 
 # Symboles et codes monetaires les plus courants sur les cibles du TP.
+# \u00ab Rs. \u00bb est celui de la cible S19 (Automation Exercise), qui affiche ses
+# prix en roupies indiennes sans jamais ecrire le code ISO.
 _DEVISES = {
-    "€": "EUR",
+    "\u20ac": "EUR",
     "eur": "EUR",
     "$": "USD",
     "us$": "USD",
     "usd": "USD",
-    "£": "GBP",
+    "\u00a3": "GBP",
     "gbp": "GBP",
-    "₹": "INR",
+    "\u20b9": "INR",
     "rs": "INR",
     "rs.": "INR",
     "inr": "INR",
-    "¥": "JPY",
+    "\u00a5": "JPY",
     "jpy": "JPY",
-    "r": "ZAR",
     "zar": "ZAR",
     "s$": "SGD",
     "sgd": "SGD",
@@ -102,8 +112,8 @@ def normaliser_prix(brut: str | None) -> Decimal | None:
     Le point delicat est le separateur. « 1,299 » vaut 1299 en anglais et 1.299
     en francais. La regle retenue, documentee et donc defendable :
 
-      - un separateur suivi d'exactement trois chiffres, et suivi d'autre chose
-        qu'une fin de nombre, est un separateur de milliers ;
+      - un separateur suivi d'exactement trois chiffres, et seul de son espece
+        dans le nombre, est un separateur de milliers ;
       - sinon, le dernier separateur rencontre est la decimale.
 
     Elle echoue sur « 1,250 » signifiant 1,25 EUR ecrit avec trois decimales :
@@ -144,6 +154,12 @@ def normaliser_prix(brut: str | None) -> Decimal | None:
 
 def detecter_devise(brut: str | None, *, defaut: str | None = None) -> str | None:
     """Deduit un code ISO 4217 du symbole affiche a cote du prix.
+
+    Les symboles sont essayes du plus long au plus court, sans quoi « rs »
+    l'emporterait sur « rs. » et « $ » sur « us$ ». Les symboles d'une seule
+    lettre sont volontairement absents de la table : « r » se rencontre dans
+    presque tout texte, et le faire correspondre a ZAR etiquetterait en rand
+    n'importe quel prix accompagne d'un mot.
 
     Renvoie `defaut` si aucun symbole n'est reconnu. Sur une cible qui n'affiche
     jamais sa devise, le rapport doit dire d'ou vient la valeur retenue : une
