@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  scraper:
+    build: .
+    container_name: os19_scraper
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./config.toml:/app/config.toml
+    environment:
+      - PYTHONUNBUFFERED=1
+    # We use a shell to ensure we can pass arguments if needed
+    command: python -m src.collecteur.cli
