@@ -22,8 +22,9 @@
              │  Reponse (html brut)
              ▼
    ┌───────────────────┐
-   │  3. EXTRACTION    │  extraction.py  sélecteurs ; SEUL module qui connaît
-   └─────────┬─────────┘                 la cible. Rend des chaînes brutes.
+   │  3. EXTRACTION    │  extraction.py      S32 -- SEULS modules qui
+   │                   │  extraction_s19.py  S19    connaissent une cible.
+   └─────────┬─────────┘                     Rendent des chaînes brutes.
              │  dict[str, str]
              ▼
    ┌───────────────────┐
@@ -52,14 +53,15 @@
 |---|---|---|---|
 | Configuration | `src/collecteur/config.py` | `config.toml`, arguments CLI | `Config` (gelée) |
 | Acquisition | `src/collecteur/acquisition.py` | `Config`, URL | `Reponse` ou exception |
-| Extraction | `src/collecteur/extraction.py` | HTML, URL de base | `list[dict[str, str]]` |
+| Extraction site 1 | `src/collecteur/extraction.py` | HTML, URL de base | `list[dict[str, str]]` |
+| Extraction site 2 | `src/collecteur/extraction_s19.py` | HTML, URL de base | `list[dict[str, str]]` |
 | Normalisation | `src/collecteur/normalisation.py` | `dict[str, str]` | valeurs typées ou `None` |
 | Modèle et validation | `src/collecteur/modele.py` | valeurs typées | `ObjetCollecte` ou `ValidationError` |
 | Export | `src/collecteur/export.py` | `ObjetCollecte` | ligne JSONL |
 | Journalisation | `src/collecteur/journal.py` | événements | `logs/collecte.log`, `Compteurs` |
 | Orchestration | `src/collecteur/cli.py` | arguments | code de sortie |
 
-## Deux décisions structurantes
+## Trois décisions structurantes
 
 ### Décision 1 — parcours de proche en proche, plutôt que la recherche du site
 
@@ -100,18 +102,41 @@
   ajoute un champ. C'est un choix assumé : sur ce volume, une collecte bruyante coûte
   quelques minutes, une donnée fausse coûte l'analyse qui s'appuiera dessus.
 
+### Décision 3 — un socle commun aux deux cibles, plutôt qu'un projet par site
+
+- **Besoin.** Le groupe couvre deux sites. La voie la plus rapide est que chacun
+  écrive son collecteur dans son coin. Elle a d'abord été prise : la branche du
+  site 2 contenait une seconde copie complète des six modules.
+- **Ce qu'elle a coûté.** Les règles de politesse — `robots.txt`, délai garanti,
+  `Retry-After`, arrêt sur refus explicite — sont la partie la plus difficile et
+  la plus notée. Dupliquées, elles étaient à écrire deux fois, à tester deux fois,
+  et sur le site 2 elles n'ont pas été écrites du tout : aucune lecture du
+  `robots.txt`, aucun délai entre deux requêtes.
+- **Retenu.** Un socle commun et **un module d'extraction par cible**. Les cinq
+  modules génériques sont écrits et testés une seule fois ; brancher un site
+  demande un module d'extraction et une classe métier.
+- **Ce que ça prouve.** Les deux cibles ont des contraintes opposées : S32 impose
+  un `Crawl-delay` de 10 s et interdit `/api` ; S19 ne publie aucun `robots.txt`.
+  Le même code d'acquisition traite les deux, et chacune a ses tests de
+  conformité (`test_robots_s32.py`, `test_robots_s19.py`).
+- **Ce à quoi je renonce.** L'indépendance des deux sites : une modification du
+  socle peut casser l'autre cible. C'est précisément ce que la suite de tests
+  couvre, et c'est un compromis assumé.
+
 ## Alternatives écartées à l'échelle du projet
 
-Quatre outils **n'ont pas** été ajoutés. La grille pénalise l'accumulation :
+Six outils **n'ont pas** été retenus. La grille pénalise l'accumulation :
 « une solution volontairement simple, dont vous expliquez la sobriété, est mieux
 notée qu'une pile de frameworks non justifiés ».
 
 | Écarté | Ce qu'il aurait apporté | Pourquoi le besoin n'existe pas ici |
 |---|---|---|
-| **Playwright** | rendu du JavaScript | La donnée est **déjà** dans la réponse HTTP des fiches (`__NEXT_DATA__`). Un navigateur coûterait une dépendance système, ~1 s de rendu par page — et rappellerait `/api`, chemin interdit. Il résoudrait un problème que je n'ai pas, en en créant un que je n'ai pas le droit d'avoir. |
+| **Playwright** | rendu du JavaScript | La donnée est **déjà** dans la réponse HTTP des deux cibles : `__NEXT_DATA__` sur S32, les 34 produits en clair sur S19. Un navigateur coûterait une dépendance système, ~1 s de rendu par page — et sur S32 il rappellerait `/api`, chemin interdit. Il résoudrait un problème que je n'ai pas, en en créant un que je n'ai pas le droit d'avoir. |
+| **crawl4ai** | acquisition pilotée par navigateur | Retenu un temps sur le site 2, puis retiré. Il embarque Playwright et Chromium pour une page servie côté serveur — vérifié : 34 produits dans la réponse HTTP brute. Il n'était de surcroît pas déclaré dans `requirements.txt` mais installé à part dans le `Dockerfile`, ce qui rendait le collecteur inexécutable hors conteneur. |
+| **Docker** | environnement reproductible | Sa seule raison d'être ici était d'installer Chromium pour crawl4ai. Sans navigateur, un `venv` et un `requirements.txt` épinglé suffisent, et se démontrent à l'oral en une commande. |
 | **Scrapy** | ordonnanceur, file, middlewares, export | Scrapy est dimensionné pour des milliers d'URL en parallèle. Ici : 30 objets, **une** requête toutes les 10 s. Son ordonnanceur serait inactif 99,7 % du temps, et sa courbe d'apprentissage se paierait à l'oral sur du code que je n'aurais pas écrit. Une `deque` de 8 lignes fait le même travail (`cli._collecte`). |
 | **Base de données** | déduplication persistante, requêtes | 30 objets tiennent dans un `set`. Une base ajouterait un schéma, une migration et un service à démarrer pour un gain nul à cette échelle. La limite est réelle et assumée — elle est citée en rubrique 9 plutôt que masquée. |
 | **Orchestrateur** (Prefect, Airflow) | replanification, reprise, supervision | La collecte dure ~5 minutes et se relance à la main. Il n'y a ni tâche périodique, ni dépendance entre jobs, ni reprise partielle à gérer. |
 
-Le compte final : **4 dépendances d'exécution** (`httpx`, `beautifulsoup4`, `lxml`,
+Le compte final reste **4 dépendances d'exécution** (`httpx`, `beautifulsoup4`, `lxml`,
 `pydantic`), chacune reliée à un besoin nommé dans `requirements.txt`.

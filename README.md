@@ -1,8 +1,9 @@
 # Collecteur Web explicable — TP de groupe
 
-> **État : site 1 (S32 — Cleveland Museum of Art) implémenté, collecté et vérifié.
-> Site 2 en cours d'intégration.**
-> Diagnostic, stratégie d'acquisition et preuves dans `docs/fiche_descriptive.md`.
+> **État : les deux sites sont implémentés, collectés et vérifiés.**
+> Site 1 — S32, Cleveland Museum of Art. Site 2 — S19, Automation Exercise.
+> Diagnostics, stratégies d'acquisition et preuves dans
+> `docs/fiche_descriptive.md` et `docs/fiche_descriptive_s19.md`.
 
 Collecteur de données Web écrit pour le TP du module « Web Scraping moderne et
 industrialisation » (Semifir, formateur Adrien Vossough).
@@ -14,7 +15,7 @@ de 2 ou 3 sont autorisés, et un groupe de 3 traite 2 sites au total.
 
 | | |
 |---|---|
-| Membres | **Joud Atallah**, **Walid Hdilou**, et un troisième membre |
+| Membres | **Joud Atallah**, **Walid Hdilou**, **Amine Kaoutar** |
 | Sites couverts | 2 |
 | Dépôt | https://github.com/Joud04/web_scraping |
 
@@ -22,25 +23,32 @@ de 2 ou 3 sont autorisés, et un groupe de 3 traite 2 sites au total.
 
 | Site | Cible | État | Contributions |
 |---|---|---|---|
-| 1 | **S32** — Cleveland Museum of Art | fusionné dans `main` | Walid Hdilou : diagnostic, extraction, modèle `Artwork`, parcours de collecte, fiche descriptive. Joud Atallah : audit technique complet, 12 tests de conformité `robots.txt` (`Crawl-delay` de 10 s relevé automatiquement, `/api` refusé avant toute requête), correctif de propagation d'URL dans les rejets, retrait de 90 lignes de code mort |
-| 2 | à intégrer | en attente | intégration et vérification dès réception |
+| 1 | **S32** — Cleveland Museum of Art | fusionné dans `main` | Walid Hdilou : diagnostic, extraction, modèle `Artwork`, parcours de collecte, fiche descriptive. Joud Atallah : audit technique, 12 tests de conformité `robots.txt` (`Crawl-delay` de 10 s relevé automatiquement, `/api` refusé avant toute requête), correctif de propagation d'URL dans les rejets, retrait de 90 lignes de code mort |
+| 2 | **S19** — Automation Exercise | fusionné dans `main` | Amine Kaoutar : diagnostic de la cible, page de liste enregistrée, périmètre des six champs. Joud Atallah : audit technique, réimplémentation sur le socle commun (ancrages réels, `category` et `brand`, parcours catégories/marques, déduplication), 20 tests hors réseau, correctif du `robots.txt` absent |
 
 Le détail par auteur se lit dans l'historique : `git log --format='%an %s'`.
 
 ### Organisation du dépôt
 
-`main` porte le **socle commun** et les sites au fur et à mesure de leur
-intégration. Chaque site est développé sur sa branche puis fusionné.
+`main` porte le **socle commun** et les deux sites. Chaque site a été développé
+sur sa branche (`s32-cleveland`, `OS19`) puis fusionné.
 
 C'est ce qui rend le travail à plusieurs praticable sans conflit : les cinq
 modules génériques (configuration, acquisition, normalisation, modèle et export,
-journalisation) sont communs aux deux sites, et **seul `extraction.py` connaît la
-cible**. Un site se branche en écrivant un module d'extraction et une classe
-métier, sans toucher au reste.
+journalisation) sont communs aux deux sites, et **seuls les modules d'extraction
+connaissent la cible**. Un site se branche en écrivant un module d'extraction et
+une classe métier, sans toucher au reste :
+
+| Cible | Module d'extraction | Classe métier | Configuration |
+|---|---|---|---|
+| S32 | `extraction.py` | `Artwork` | `config.example.toml` |
+| S19 | `extraction_s19.py` | `Product` | `config.s19.example.toml` |
 
 Le bénéfice est mesurable : la conformité au `robots.txt`, le délai garanti entre
 deux requêtes, la gestion des 429 et l'arrêt sur refus explicite sont écrits et
-testés **une seule fois**, et valent pour les deux sites.
+testés **une seule fois**, et valent pour les deux sites. Les deux cibles ont
+pourtant des contraintes opposées — l'une impose un `Crawl-delay` de 10 s, l'autre
+ne publie aucun `robots.txt` — et le même code les traite toutes les deux.
 
 ## Site 1 — cible et périmètre
 
@@ -55,6 +63,39 @@ testés **une seule fois**, et valent pour les deux sites.
 | Rendu observé | recherche : contenu absent sans JavaScript ; **fiches détail : servies côté serveur** |
 
 Le diagnostic complet, preuves à l'appui, est dans `docs/fiche_descriptive.md`.
+
+## Site 2 — cible et périmètre
+
+| | |
+|---|---|
+| Identifiant de cible | S19 |
+| Site | Automation Exercise |
+| URL de départ | https://automationexercise.com/products |
+| Objet collecté | Product |
+| Volume plafond | 60 objets — **le catalogue n'en contient que 34** |
+| Champs minimaux | `name`, `price`, `currency`, `category`, `brand`, `url` |
+| Rendu observé | **contenu présent sans JavaScript** : 34 produits dans la réponse HTTP brute |
+| `robots.txt` | **absent** — `/robots.txt` répond 302 vers la page d'accueil |
+
+Deux points distinguent cette cible de la première, et ce sont eux qui rendent
+le socle commun intéressant à défendre :
+
+- **le site ne publie aucun `robots.txt`.** Aucun chemin n'est interdit et aucun
+  `Crawl-delay` n'est déclaré. Le délai d'une seconde est donc **entièrement à
+  notre charge** : rien ne l'impose, il est appliqué quand même. Une réponse qui
+  n'est pas `text/plain` est traitée comme une absence de fichier, faute de quoi
+  un `Disallow:` apparaissant par hasard dans la page d'accueil serait appliqué
+  comme une règle réelle ;
+- **le site ne pagine pas.** Les 34 produits tiennent sur une page. Ce sont les
+  7 catégories et les 8 marques qui structurent le catalogue et tiennent lieu de
+  pagination.
+
+La catégorie et la marque ne figurent **pas** sur la page de liste alors qu'elles
+comptent parmi les six champs minimaux : chaque produit demande donc une seconde
+requête, sur sa fiche détail. La déduplication est faite **avant** cette requête,
+ce qui a économisé 68 requêtes sur les 102 produits rencontrés.
+
+Le diagnostic complet est dans `docs/fiche_descriptive_s19.md`.
 
 ## Prérequis
 
@@ -102,8 +143,15 @@ seul ne dit rien de ce que contenait la réponse HTTP.
 ### Collecte limitée
 
 ```bash
-python -m collecteur collecte --max-objets 10 --delai 1.0
+# Site 1 — S32, Cleveland Museum of Art
+python -m collecteur collecte --max-objets 10 --delai 10.0
+
+# Site 2 — S19, Automation Exercise
+python -m collecteur collecte --config config.s19.toml
 ```
+
+C'est l'identifiant de cible du fichier de configuration (`[cible] id`) qui
+décide du parcours appliqué : les deux sites partagent le même exécutable.
 
 Toutes les options : `--url`, `--max-objets`, `--max-pages`, `--delai`,
 `--sortie`, `--config`, `--niveau {DEBUG,INFO,WARNING,ERROR}`.
@@ -145,10 +193,11 @@ et non pas seulement affirmé ici.
 
 | Fichier | Contenu | Versionné ? |
 |---|---|---|
-| `data/sortie.jsonl` | tous les objets validés | non (`.gitignore`) |
-| `data/rejets.jsonl` | objets écartés, avec motif et champ fautif | non |
-| `samples/sample_output.json` | échantillon de 10 objets, relisible sur GitHub | **oui** |
-| `logs/collecte.log` | traces horodatées | non |
+| `data/sortie.jsonl`, `data/sortie_s19.jsonl` | tous les objets validés | non (`.gitignore`) |
+| `data/rejets.jsonl`, `data/rejets_s19.jsonl` | objets écartés, avec motif et champ fautif | non |
+| `samples/sample_output.json` | site 1 — échantillon de 10 objets, relisible sur GitHub | **oui** |
+| `samples/sample_output_s19.json` | site 2 — échantillon de 10 objets | **oui** |
+| `logs/collecte.log`, `logs/collecte_s19.log` | traces horodatées | non |
 
 Les dates de création restent en **texte** (`date_text : "c. 1765"`) et ne sont pas
 converties en date. Ce n'est pas un raccourci : le musée date ses œuvres en
@@ -193,7 +242,7 @@ confondrait les deux.
   exclus par `.gitignore` ; seul `config.example.toml`, qui ne porte aucune valeur,
   est publié.
 
-## Limites connues
+## Limites connues — site 1 (S32)
 
 1. **Découverte bornée par le voisinage.** Le parcours part de graines et suit les
    œuvres liées (`artworksForSeeAlso`). Il n'atteint donc que la composante du
@@ -212,6 +261,23 @@ confondrait les deux.
    plafond de 30 objets — une base de données serait ici de la complexité gratuite,
    ce que la grille pénalise explicitement.
 
+## Limites connues — site 2 (S19)
+
+1. **Le catalogue est petit.** 34 produits, là où la fiche de cible autorise 60.
+   Le plafond n'est jamais atteint : la collecte s'arrête quand le catalogue est
+   épuisé, pas quand un compteur est satisfait.
+2. **La recherche n'est pas couverte.** Elle passe par un `POST /search_product`.
+   Les catégories et les marques donnent déjà accès à l'intégralité du catalogue,
+   donc la recherche n'apporterait aucun produit supplémentaire. Choix assumé.
+3. **Le panier de test n'est pas utilisé**, délibérément : ajouter au panier est
+   une action d'écriture, et aucune donnée du panier ne figure dans les champs
+   minimaux.
+4. **La devise est déduite, pas déclarée.** Le site affiche « Rs. » et n'écrit
+   jamais le code ISO. Traduire « Rs. » en `INR` est une interprétation —
+   correcte ici, mais qui se déclare plutôt qu'elle ne se cache.
+
+Le détail est dans `docs/fiche_descriptive_s19.md`.
+
 ## Structure du dépôt
 
 ```
@@ -219,21 +285,32 @@ confondrait les deux.
 ├── README.md
 ├── requirements.txt
 ├── pyproject.toml
-├── config.example.toml          aucun secret ; graines du parcours S32
+├── config.example.toml          site 1 — aucun secret ; graines du parcours S32
+├── config.s19.example.toml      site 2 — aucun secret
 ├── src/collecteur/              six responsabilités, un module chacune
-├── tests/                       54 tests, aucun ne touche le réseau
+│   ├── extraction.py            site 1 — seul module qui connaît S32
+│   └── extraction_s19.py        site 2 — seul module qui connaît S19
+├── tests/                       105 tests, aucun ne touche le réseau
 │   ├── fixtures/
-│   │   ├── page_detail.html     fiche 1915.534 enregistrée telle quelle (116 Ko)
-│   │   └── robots.txt           robots.txt réel de la cible, enregistré
-│   ├── test_extraction.py       contrôle 1 : champs extraits de la fiche enregistrée
-│   ├── test_normalisation.py    contrôle 2 : normalisation texte et URL
-│   ├── test_deduplication.py    contrôle 3 : déduplication et rejet d'incomplet
-│   ├── test_robots_s32.py       conformité robots.txt : Crawl-delay 10 s, /api refusé
+│   │   ├── page_detail.html     S32 — fiche 1915.534 enregistrée telle quelle (116 Ko)
+│   │   ├── robots.txt           S32 — robots.txt réel de la cible, enregistré
+│   │   ├── page_liste.html      S19 — page /products enregistrée (34 produits)
+│   │   └── page_detail_s19.html S19 — fiche /product_details/1 enregistrée
+│   ├── test_extraction.py       S32 : champs extraits de la fiche enregistrée
+│   ├── test_extraction_s19.py   S19 : liste, détail, catégorie et marque
+│   ├── test_normalisation.py    normalisation texte et URL
+│   ├── test_normalisation_prix.py  conversion des prix et déduction de la devise
+│   ├── test_deduplication.py    déduplication et rejet d'incomplet
+│   ├── test_robots_s32.py       conformité : Crawl-delay 10 s, /api refusé
+│   ├── test_robots_s19.py       conformité : robots.txt absent, délai à notre charge
 │   └── test_export.py           l'écrivain JSONL lui-même
-├── samples/sample_output.json   échantillon de 10 objets
+├── samples/
+│   ├── sample_output.json       site 1 — échantillon de 10 objets
+│   └── sample_output_s19.json   site 2 — échantillon de 10 objets
 └── docs/
     ├── architecture.md
     ├── fiche_descriptive.md     diagnostic S32, preuves à l'appui
+    ├── fiche_descriptive_s19.md diagnostic S19, preuves à l'appui
     ├── AI_USAGE.md
     ├── fiche_descriptive_template.md
     └── CHECKLIST_RENDU.md
