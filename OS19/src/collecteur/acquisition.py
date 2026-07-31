@@ -28,7 +28,7 @@ class Acquisition:
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         if self.crawler:
-            await self.crawler.aclose()
+            await self.crawler.close()
 
     async def fetch_html(self, url: str) -> Optional[str]:
         """Récupère le contenu HTML d'une URL avec gestion du délai et des erreurs."""
